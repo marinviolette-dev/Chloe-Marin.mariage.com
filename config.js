@@ -17,7 +17,7 @@ window.MARRIAGE_CONFIG = {
   // Google Sheets > File > Share > Publish to web > CSV.
   // Recommended columns:
   // firstName,lastName,inviteCode,maxGuests
-  guestSheetCsvUrl: "https://docs.google.com/spreadsheets/d/REMPLACE_ID/export?format=csv",
+  guestSheetCsvUrl: "https://docs.google.com/spreadsheets/d/12gbTMlem0s8YRrA3MKDIOTfgRaKYHh8uJffcl4UwgmI/export?format=csv&gid=0",
 
   supabase: {
     url: "https://iksdthewqediefbkgcri.supabase.co",
