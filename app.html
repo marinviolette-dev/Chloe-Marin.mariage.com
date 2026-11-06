@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mon espace — Chloé & Marin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="app.html">C<span>&</span>M</a>
+    <div class="user-area">
+      <span id="guestName"></span>
+      <button id="logoutBtn" class="text-button">Déconnexion</button>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <section class="welcome">
+      <p class="eyebrow">Bienvenue</p>
+      <h1 id="welcomeName">à vous</h1>
+      <p>Tout ce qu'il faut pour préparer notre journée ensemble.</p>
+    </section>
+
+    <section class="tiles">
+      <a href="rsvp.html" class="tile tile-large">
+        <span class="tile-icon">♡</span>
+        <h2>Ma participation</h2>
+        <p>Confirmez votre venue et indiquez qui sera présent.</p>
+      </a>
+      <a href="infos.html" class="tile">
+        <span class="tile-icon">⌖</span>
+        <h2>Infos utiles</h2>
+        <p>Lieu, horaires, hébergement, transport et programme.</p>
+      </a>
+      <a href="photos.html" class="tile tile-photo">
+        <span class="tile-icon">▧</span>
+        <h2>La pellicule</h2>
+        <p>Partagez jusqu'à 23 photos de votre journée.</p>
+      </a>
+      <a href="souvenir.html" class="tile">
+        <span class="tile-icon">✦</span>
+        <h2>Notre histoire</h2>
+        <p>Quelques mots, souvenirs et petites surprises.</p>
+      </a>
+    </section>
+  </main>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
