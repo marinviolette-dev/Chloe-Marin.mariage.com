@@ -20,9 +20,9 @@ window.MARRIAGE_CONFIG = {
   guestSheetCsvUrl: "https://docs.google.com/spreadsheets/d/REMPLACE_ID/export?format=csv",
 
   supabase: {
-    url: "https://REMPLACE_PROJECT.supabase.co",
-    anonKey: "REMPLACE_ANON_OR_PUBLISHABLE_KEY",
-    bucket: "wedding-photos"
+    url: "https://iksdthewqediefbkgcri.supabase.co",
+    anonKey: "sb_publishable_wCXAGVo1tIhCYzsREkHRgw_cA8Ecboe",
+    bucket: "Pellicules"
   },
 
   // Supabase Edge Function URL for RSVP writes.
