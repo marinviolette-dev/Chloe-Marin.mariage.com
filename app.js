@@ -2,114 +2,504 @@ window.MarriageApp = (() => {
   const C = window.MARRIAGE_CONFIG;
   const SESSION_KEY = "chloe-marin-guest";
 
-  function normalize(v) {
-    return String(v ?? "").trim().toLowerCase();
+  function normalize(value) {
+    return String(value ?? "").trim().toLowerCase();
   }
 
-  function csvRows(text) {
-    const rows=[]; let row=[]; let cell=""; let quoted=false;
-    for(let i=0;i<text.length;i++){
-      const c=text[i], n=text[i+1];
-      if(c === '"' && quoted && n === '"'){ cell+='"'; i++; continue; }
-      if(c === '"'){ quoted=!quoted; continue; }
-      if(c === ',' && !quoted){ row.push(cell); cell=""; continue; }
-      if((c === '\n' || c === '\r') && !quoted){
-        if(c==='\r' && n==='\n') i++;
-        row.push(cell); cell="";
-        if(row.some(x=>x.trim()!=="")) rows.push(row);
-        row=[]; continue;
+  function parseCSVLine(line) {
+    const result = [];
+    let current = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const next = line[i + 1];
+
+      if (char === '"' && inQuotes && next === '"') {
+        current += '"';
+        i++;
+      } else if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === "," && !inQuotes) {
+        result.push(current);
+        current = "";
+      } else {
+        current += char;
       }
-      cell+=c;
     }
-    if(cell!=="" || row.length){row.push(cell); if(row.some(x=>x.trim()!=="")) rows.push(row);}
+
+    result.push(current);
+    return result;
+  }
+
+  function parseCSV(csv) {
+    const rows = [];
+    let row = [];
+    let cell = "";
+    let quoted = false;
+
+    for (let i = 0; i < csv.length; i++) {
+      const char = csv[i];
+      const next = csv[i + 1];
+
+      if (char === '"' && quoted && next === '"') {
+        cell += '"';
+        i++;
+      } else if (char === '"') {
+        quoted = !quoted;
+      } else if ((char === "\n" || char === "\r") && !quoted) {
+        if (char === "\r" && next === "\n") i++;
+
+        row.push(cell);
+        cell = "";
+
+        if (row.some((value) => value.trim() !== "")) {
+          rows.push(row);
+        }
+
+        row = [];
+      } else {
+        cell += char;
+      }
+    }
+
+    if (cell !== "" || row.length > 0) {
+      row.push(cell);
+
+      if (row.some((value) => value.trim() !== "")) {
+        rows.push(row);
+      }
+    }
+
     return rows;
   }
 
   async function findGuest(identifier) {
     const url = C.guestSheetCsvUrl;
-    if(!url || url.includes("REMPLACE")) throw new Error("La liste des invités n’est pas encore configurée.");
-    const res = await fetch(url, {cache:"no-store"});
-    if(!res.ok) throw new Error("Impossible de charger la liste des invités.");
-    const rows=csvRows(await res.text());
-    if(rows.length<2) throw new Error("La feuille des invités est vide.");
-    const headers=rows[0].map(h=>normalize(h));
-    // Colonnes fixes demandées : B=nom, G=max adultes, H=enfants, I=identifiant.
-    const idx={name:1, adults:6, children:7, id:8};
-    // Si les en-têtes sont nommés, ils sont prioritaires.
-    const find=(names, fallback)=>{ for(const n of names){const i=headers.indexOf(normalize(n)); if(i>=0)return i;} return fallback; };
-    idx.name=find(["nom","noms","nom complet","name"],1);
-    idx.adults=find(["max guest","max guests","adultes","adult"],6);
-    idx.children=find(["enfants","children"],7);
-    idx.id=find(["identifiant","identifiant de connexion","login","code"],8);
-    const wanted=normalize(identifier);
-    const row=rows.slice(1).find(r=>normalize(r[idx.id])===wanted);
-    if(!row) return null;
-    const adults=Math.max(0, parseInt(String(row[idx.adults]||"0").replace(",", "."),10)||0);
-    const children=Math.max(0, parseInt(String(row[idx.children]||"0").replace(",", "."),10)||0);
-    const max=adults+children;
-    if(max<1) throw new Error("Cet invité n’a pas de capacité d’invitation configurée.");
-    const fullName=String(row[idx.name]||"").trim();
-    const parts=fullName.split(/\s+/);
+
+    if (!url || url.includes("REMPLACE")) {
+      throw new Error("La liste des invités n’est pas configurée.");
+    }
+
+    const response = await fetch(url, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error("Impossible de charger la liste des invités.");
+    }
+
+    const rows = parseCSV(await response.text());
+
+    if (rows.length < 2) {
+      throw new Error("La feuille des invités est vide.");
+    }
+
+    const headers = rows[0].map((header) => normalize(header));
+
+    function findColumn(names, fallback) {
+      for (const name of names) {
+        const index = headers.indexOf(normalize(name));
+
+        if (index !== -1) {
+          return index;
+        }
+      }
+
+      return fallback;
+    }
+
+    // Colonnes du Google Sheet :
+    // B = nom
+    // G = adultes
+    // H = enfants
+    // I = identifiant personnalisé
+
+    const nameIndex = findColumn(
+      ["nom", "noms", "nom complet", "name"],
+      1
+    );
+
+    const adultsIndex = findColumn(
+      ["adultes", "adult", "nombre adultes", "max adultes"],
+      6
+    );
+
+    const childrenIndex = findColumn(
+      ["enfants", "enfant", "nombre enfants", "max enfants"],
+      7
+    );
+
+    const inviteCodeIndex = findColumn(
+      [
+        "identifiant",
+        "identifiant de connexion",
+        "login",
+        "code",
+        "code invitation",
+        "invite_code",
+        "invitation"
+      ],
+      8
+    );
+
+    const wanted = normalize(identifier);
+
+    const row = rows
+      .slice(1)
+      .find((currentRow) => {
+        return normalize(currentRow[inviteCodeIndex]) === wanted;
+      });
+
+    if (!row) {
+      return null;
+    }
+
+    const adults =
+      parseInt(String(row[adultsIndex] || "0"), 10) || 0;
+
+    const children =
+      parseInt(String(row[childrenIndex] || "0"), 10) || 0;
+
+    const maxGuests = adults + children;
+
+    const fullName = String(row[nameIndex] || "").trim();
+
     return {
-      invite_code:String(row[idx.id]).trim(),
-      first_name:parts.length>1 ? parts.slice(0,-1).join(" ") : fullName,
-      last_name:parts.length>1 ? parts.at(-1) : "",
-      full_name:fullName,
+      invite_code: String(row[inviteCodeIndex] || "").trim(),
+      full_name: fullName,
       adults,
       children,
-      max_guests:max
+      max_guests: maxGuests,
     };
   }
 
-  function saveSession(guest){ localStorage.setItem(SESSION_KEY, JSON.stringify(guest)); }
-  function getSession(){ try{return JSON.parse(localStorage.getItem(SESSION_KEY)||"null")}catch{return null} }
-  function requireSession(){ const g=getSession(); if(!g){location.href="login.html"; return null;} return g; }
-  function logout(){localStorage.removeItem(SESSION_KEY); location.href="login.html";}
+  function saveSession(guest) {
+    localStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify(guest)
+    );
+  }
 
-  async function fn(name, body) {
-    const url=`${C.supabase.url}/functions/v1/${name}`;
-    const res=await fetch(url,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","apikey":C.supabase.anonKey,"Authorization":`Bearer ${C.supabase.anonKey}`},
-      body:JSON.stringify(body)
+  function getSession() {
+    try {
+      return JSON.parse(
+        localStorage.getItem(SESSION_KEY) || "null"
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  function requireSession() {
+    const guest = getSession();
+
+    if (!guest) {
+      window.location.href = "login.html";
+      return null;
+    }
+
+    return guest;
+  }
+
+  function logout() {
+    localStorage.removeItem(SESSION_KEY);
+    window.location.href = "login.html";
+  }
+
+  async function callFunction(functionName, body) {
+    if (
+      !C.supabase.url ||
+      C.supabase.url.includes("REMPLACE")
+    ) {
+      throw new Error("Supabase n’est pas configuré.");
+    }
+
+    if (
+      !C.supabase.anonKey ||
+      C.supabase.anonKey.includes("REMPLACE")
+    ) {
+      throw new Error("La clé Supabase n’est pas configurée.");
+    }
+
+    const url =
+      `${C.supabase.url}/functions/v1/${functionName}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": C.supabase.anonKey,
+        "Authorization": `Bearer ${C.supabase.anonKey}`,
+      },
+
+      body: JSON.stringify(body),
     });
-    let data={}; try{data=await res.json()}catch{}
-    if(!res.ok) throw new Error(data.error || "Une erreur est survenue.");
+
+    let data = {};
+
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+        `Erreur serveur (${response.status}).`
+      );
+    }
+
     return data;
   }
 
-  async function saveRsvp(payload){
-    if(!C.supabase.url || C.supabase.url.includes("REMPLACE")) throw new Error("Supabase n’est pas encore configuré.");
-    return fn(C.functions.saveRsvp,payload);
-  }
+  async function saveRsvp(payload) {
+    const guest = getSession();
 
-  async function loadRsvp(guest){
-    if(!C.supabase.url || C.supabase.url.includes("REMPLACE")) return null;
-    try{return await fn(C.functions.saveRsvp,{action:"get",guest_id:guest.invite_code})}catch{return null}
-  }
+    /*
+     * IMPORTANT :
+     * L'identifiant est maintenant récupéré depuis
+     * la session du navigateur.
+     *
+     * On ne dépend donc plus de guest_id envoyé
+     * par le formulaire.
+     */
 
-  async function uploadPhotos(guest, files){
-    if(files.length>23) throw new Error("Vous ne pouvez pas sélectionner plus de 23 photos à la fois.");
-    if(!C.supabase.url || C.supabase.url.includes("REMPLACE")) throw new Error("Supabase n’est pas encore configuré.");
-    const session=await fn(C.functions.photoSession,{guest_id:guest.invite_code,count:files.length});
-    const sb=supabase.createClient(C.supabase.url,C.supabase.anonKey);
-    for(let i=0;i<files.length;i++){
-      const f=files[i];
-      if(!f.type.startsWith("image/")) throw new Error(`"${f.name}" n’est pas une image.`);
-      if(f.size>15*1024*1024) throw new Error(`"${f.name}" dépasse 15 Mo.`);
-      const item=session.uploads[i];
-      const {error}=await sb.storage.from(C.supabase.bucket).uploadToSignedUrl(item.path,item.token,f,{contentType:f.type,upsert:false});
-      if(error) throw new Error(`Échec de l’envoi de "${f.name}".`);
-      const record=await fn(C.functions.photoSession,{action:"confirm",guest_id:guest.invite_code,photo:{path:item.path,name:f.name,type:f.type,size:f.size}});
-      if(!record.ok) throw new Error("La photo n’a pas pu être enregistrée.");
+    const inviteCode =
+      guest?.invite_code ||
+      payload.inviteCode ||
+      payload.guest_id;
+
+    if (!inviteCode) {
+      throw new Error(
+        "Identifiant d’invitation manquant."
+      );
     }
+
+    const attendance =
+      payload.attendance === true ||
+      payload.attendance === "yes" ||
+      payload.attendance === "oui";
+
+    const peopleCount = Number(
+      payload.peopleCount ??
+      payload.people_count ??
+      0
+    );
+
+    return callFunction(
+      C.functions.saveRsvp,
+      {
+        inviteCode: inviteCode,
+
+        attendance: attendance,
+
+        peopleCount: peopleCount,
+
+        companions:
+          payload.companions ?? "",
+
+        diet:
+          payload.diet ?? "",
+      }
+    );
+  }
+
+  async function loadRsvp(guest) {
+    const currentGuest =
+      guest || getSession();
+
+    if (!currentGuest?.invite_code) {
+      throw new Error(
+        "Identifiant d’invitation manquant."
+      );
+    }
+
+    const data = await callFunction(
+      C.functions.saveRsvp,
+      {
+        action: "get",
+
+        inviteCode:
+          currentGuest.invite_code,
+      }
+    );
+
+    if (!data.rsvp) {
+      return null;
+    }
+
+    return {
+      ...data.rsvp,
+
+      attendance:
+        data.rsvp.attendance
+          ? "yes"
+          : "no",
+
+      people_count:
+        data.rsvp.people_count,
+
+      companions:
+        data.rsvp.companions || "",
+
+      diet:
+        data.rsvp.diet || "",
+    };
+  }
+
+  async function uploadPhotos(guest, files) {
+    const currentGuest =
+      guest || getSession();
+
+    if (!currentGuest?.invite_code) {
+      throw new Error(
+        "Identifiant d’invitation manquant."
+      );
+    }
+
+    if (!files || files.length === 0) {
+      return true;
+    }
+
+    if (files.length > 23) {
+      throw new Error(
+        "Vous ne pouvez pas sélectionner plus de 23 photos à la fois."
+      );
+    }
+
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) {
+        throw new Error(
+          `"${file.name}" n’est pas une image.`
+        );
+      }
+
+      if (file.size > 15 * 1024 * 1024) {
+        throw new Error(
+          `"${file.name}" dépasse 15 Mo.`
+        );
+      }
+    }
+
+    const session =
+      await callFunction(
+        C.functions.photoSession,
+        {
+          inviteCode:
+            currentGuest.invite_code,
+
+          count: files.length,
+        }
+      );
+
+    const supabaseClient =
+      window.supabase.createClient(
+        C.supabase.url,
+        C.supabase.anonKey
+      );
+
+    const confirmations = [];
+
+    for (
+      let i = 0;
+      i < files.length;
+      i++
+    ) {
+      const file = files[i];
+      const upload = session.uploads[i];
+
+      const { error } =
+        await supabaseClient.storage
+          .from(C.supabase.bucket)
+          .uploadToSignedUrl(
+            upload.path,
+            upload.token,
+            file,
+            {
+              contentType: file.type,
+              upsert: false,
+            }
+          );
+
+      if (error) {
+        throw new Error(
+          `Échec de l’envoi de "${file.name}" : ${error.message}`
+        );
+      }
+
+      confirmations.push({
+        storagePath:
+          upload.path,
+
+        originalName:
+          file.name,
+
+        mimeType:
+          file.type,
+
+        sizeBytes:
+          file.size,
+      });
+    }
+
+    await callFunction(
+      C.functions.photoSession,
+      {
+        action: "confirm",
+
+        inviteCode:
+          currentGuest.invite_code,
+
+        uploads:
+          confirmations,
+      }
+    );
+
     return true;
   }
 
-  async function listPhotos(guest){
-    const data=await fn(C.functions.photoList,{guest_id:guest.invite_code});
-    return data.photos||[];
+  async function listPhotos(guest) {
+    const currentGuest =
+      guest || getSession();
+
+    if (!currentGuest?.invite_code) {
+      throw new Error(
+        "Identifiant d’invitation manquant."
+      );
+    }
+
+    const data =
+      await callFunction(
+        C.functions.photoList,
+        {
+          inviteCode:
+            currentGuest.invite_code,
+        }
+      );
+
+    return (data.photos || []).map(
+      (photo) => ({
+        ...photo,
+
+        created_at:
+          photo.createdAt ||
+          photo.created_at,
+      })
+    );
   }
 
-  return {findGuest,saveSession,getSession,requireSession,logout,saveRsvp,loadRsvp,uploadPhotos,listPhotos};
+  return {
+    findGuest,
+    saveSession,
+    getSession,
+    requireSession,
+    logout,
+    saveRsvp,
+    loadRsvp,
+    uploadPhotos,
+    listPhotos,
+  };
 })();
