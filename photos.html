@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>La pellicule — Chloé & Marin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="app.html">C<span>&</span>M</a><a class="back-link" href="app.html">← Mon espace</a></header>
+  <main class="content">
+    <section class="content-card">
+      <p class="eyebrow">Souvenirs</p>
+      <h1>La pellicule</h1>
+      <p class="muted">Partagez jusqu'à <strong>23 photos par personne</strong>. Les photos seront visibles par les invités selon la configuration choisie.</p>
+
+      <div class="upload-box">
+        <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple>
+        <button id="uploadBtn" class="button" type="button">Ajouter mes photos</button>
+        <p id="photoStatus" class="small"></p>
+      </div>
+
+      <div id="photoGrid" class="photo-grid"></div>
+    </section>
+  </main>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

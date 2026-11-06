@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accès invité — Chloé & Marin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="simple-page">
+  <main class="card-page">
+    <section class="auth-card">
+      <p class="eyebrow">Espace invité</p>
+      <h1>Bienvenue</h1>
+      <p class="muted">Entrez le prénom et le nom indiqués sur votre faire-part.</p>
+
+      <form id="loginForm">
+        <label>Prénom
+          <input id="firstName" autocomplete="given-name" required placeholder="Chloé">
+        </label>
+        <label>Nom
+          <input id="lastName" autocomplete="family-name" required placeholder="Martin">
+        </label>
+        <label>Code d'invitation <span class="optional">(si demandé sur votre faire-part)</span>
+          <input id="inviteCode" autocomplete="off" placeholder="Ex. CM-4821">
+        </label>
+        <button class="button" type="submit">Accéder à mon espace</button>
+        <p id="loginError" class="error" hidden></p>
+      </form>
+
+      <a class="back-link" href="index.html">← Retour</a>
+    </section>
+  </main>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

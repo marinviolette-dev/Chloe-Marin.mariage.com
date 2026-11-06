@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Participation — Chloé & Marin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="app.html">C<span>&</span>M</a>
+    <a class="back-link" href="app.html">← Mon espace</a>
+  </header>
+  <main class="content">
+    <section class="content-card">
+      <p class="eyebrow">RSVP</p>
+      <h1>Votre participation</h1>
+      <p class="muted">Merci de nous répondre avant la date indiquée sur votre faire-part.</p>
+
+      <form id="rsvpForm" class="form-grid">
+        <div>
+          <label>Votre réponse
+            <select id="attendance" required>
+              <option value="">Choisir…</option>
+              <option value="yes">Oui, avec grand plaisir !</option>
+              <option value="no">Non, malheureusement</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="peopleBlock">
+          <label>Nombre de personnes présentes
+            <select id="peopleCount" required></select>
+          </label>
+          <p id="allowedText" class="small"></p>
+        </div>
+
+        <div id="companionsBlock" class="full">
+          <label>Nom(s) des accompagnant(s)
+            <textarea id="companions" rows="3" placeholder="Prénom Nom"></textarea>
+          </label>
+        </div>
+
+        <div class="full">
+          <label>Allergies / régime alimentaire / précision
+            <textarea id="diet" rows="4" placeholder="Facultatif"></textarea>
+          </label>
+        </div>
+
+        <div class="full">
+          <button class="button" type="submit">Enregistrer ma réponse</button>
+          <p id="rsvpMessage" class="success" hidden></p>
+          <p id="rsvpError" class="error" hidden></p>
+        </div>
+      </form>
+    </section>
+  </main>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
