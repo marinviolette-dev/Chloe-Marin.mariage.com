@@ -1,109 +1,115 @@
-(() => {
-  const cfg = window.MARRIAGE_CONFIG || {};
-  const KEY = "weddingGuest";
+window.MarriageApp = (() => {
+  const C = window.MARRIAGE_CONFIG;
+  const SESSION_KEY = "chloe-marin-guest";
 
-  function getGuest(){ try{return JSON.parse(localStorage.getItem(KEY)||"null")}catch{return null} }
-  function setGuest(g){localStorage.setItem(KEY,JSON.stringify(g))}
-  function logout(){localStorage.removeItem(KEY);location.href="login.html"}
-
-  async function csvGuests(){
-    if(!cfg.guestSheetCsvUrl || cfg.guestSheetCsvUrl.includes("REMPLACE")) return [];
-    const r=await fetch(cfg.guestSheetCsvUrl,{cache:"no-store"});
-    if(!r.ok) throw new Error("Impossible de lire la liste des invités.");
-    const text=await r.text();
-    return parseCSV(text);
+  function normalize(v) {
+    return String(v ?? "").trim().toLowerCase();
   }
 
-  function parseCSV(text){
-    const rows=[]; let row=[], cell="", q=false;
-    for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];
-      if(c=='"'&&q&&n=='"'){cell+='"';i++;continue}
-      if(c=='"'){q=!q;continue}
-      if(c==','&&!q){row.push(cell);cell="";continue}
-      if((c=='\n'||c=='\r')&&!q){if(c=='\r'&&n=='\n')i++;row.push(cell);if(row.some(x=>x.trim()))rows.push(row);row=[];cell="";continue}
+  function csvRows(text) {
+    const rows=[]; let row=[]; let cell=""; let quoted=false;
+    for(let i=0;i<text.length;i++){
+      const c=text[i], n=text[i+1];
+      if(c === '"' && quoted && n === '"'){ cell+='"'; i++; continue; }
+      if(c === '"'){ quoted=!quoted; continue; }
+      if(c === ',' && !quoted){ row.push(cell); cell=""; continue; }
+      if((c === '\n' || c === '\r') && !quoted){
+        if(c==='\r' && n==='\n') i++;
+        row.push(cell); cell="";
+        if(row.some(x=>x.trim()!=="")) rows.push(row);
+        row=[]; continue;
+      }
       cell+=c;
     }
-    if(cell||row.length){row.push(cell);rows.push(row)}
-    if(!rows.length)return [];
-    const headers=rows.shift().map(h=>h.trim());
-    return rows.map(r=>Object.fromEntries(headers.map((h,i)=>[h,(r[i]||"").trim()])));
+    if(cell!=="" || row.length){row.push(cell); if(row.some(x=>x.trim()!=="")) rows.push(row);}
+    return rows;
   }
 
-  async function login(e){
-    e.preventDefault();
-    const first=firstName.value.trim(), last=lastName.value.trim(), code=inviteCode.value.trim();
-    const err=loginError; err.hidden=true;
-    try{
-      const guests=await csvGuests();
-      if(!guests.length){
-        err.textContent="La liste des invités n'est pas encore configurée. Consulte le README.";
-        err.hidden=false; return;
-      }
-      const g=guests.find(x=>x.firstName.toLowerCase()===first.toLowerCase() &&
-        x.lastName.toLowerCase()===last.toLowerCase() &&
-        (!x.inviteCode || x.inviteCode===code));
-      if(!g){err.textContent="Invité non trouvé. Vérifiez le prénom, le nom et le code.";err.hidden=false;return}
-      setGuest({firstName:g.firstName,lastName:g.lastName,inviteCode:g.inviteCode||"",maxGuests:Math.max(1,Number(g.maxGuests||1))});
-      location.href="app.html";
-    }catch(ex){err.textContent=ex.message;err.hidden=false}
+  async function findGuest(identifier) {
+    const url = C.guestSheetCsvUrl;
+    if(!url || url.includes("REMPLACE")) throw new Error("La liste des invités n’est pas encore configurée.");
+    const res = await fetch(url, {cache:"no-store"});
+    if(!res.ok) throw new Error("Impossible de charger la liste des invités.");
+    const rows=csvRows(await res.text());
+    if(rows.length<2) throw new Error("La feuille des invités est vide.");
+    const headers=rows[0].map(h=>normalize(h));
+    // Colonnes fixes demandées : B=nom, G=max adultes, H=enfants, I=identifiant.
+    const idx={name:1, adults:6, children:7, id:8};
+    // Si les en-têtes sont nommés, ils sont prioritaires.
+    const find=(names, fallback)=>{ for(const n of names){const i=headers.indexOf(normalize(n)); if(i>=0)return i;} return fallback; };
+    idx.name=find(["nom","noms","nom complet","name"],1);
+    idx.adults=find(["max guest","max guests","adultes","adult"],6);
+    idx.children=find(["enfants","children"],7);
+    idx.id=find(["identifiant","identifiant de connexion","login","code"],8);
+    const wanted=normalize(identifier);
+    const row=rows.slice(1).find(r=>normalize(r[idx.id])===wanted);
+    if(!row) return null;
+    const adults=Math.max(0, parseInt(String(row[idx.adults]||"0").replace(",", "."),10)||0);
+    const children=Math.max(0, parseInt(String(row[idx.children]||"0").replace(",", "."),10)||0);
+    const max=adults+children;
+    if(max<1) throw new Error("Cet invité n’a pas de capacité d’invitation configurée.");
+    const fullName=String(row[idx.name]||"").trim();
+    const parts=fullName.split(/\s+/);
+    return {
+      invite_code:String(row[idx.id]).trim(),
+      first_name:parts.length>1 ? parts.slice(0,-1).join(" ") : fullName,
+      last_name:parts.length>1 ? parts.at(-1) : "",
+      full_name:fullName,
+      adults,
+      children,
+      max_guests:max
+    };
   }
 
-  function guard(){
-    const g=getGuest();
-    if(!g && !location.pathname.endsWith("login.html") && !location.pathname.endsWith("index.html")) location.href="login.html";
-    return g;
-  }
+  function saveSession(guest){ localStorage.setItem(SESSION_KEY, JSON.stringify(guest)); }
+  function getSession(){ try{return JSON.parse(localStorage.getItem(SESSION_KEY)||"null")}catch{return null} }
+  function requireSession(){ const g=getSession(); if(!g){location.href="login.html"; return null;} return g; }
+  function logout(){localStorage.removeItem(SESSION_KEY); location.href="login.html";}
 
-  async function setupApp(){
-    const g=guard(); if(!g)return;
-    const gn=document.querySelector("#guestName"), wn=document.querySelector("#welcomeName");
-    if(gn)gn.textContent=`${g.firstName} ${g.lastName}`;
-    if(wn)wn.textContent=`Bonjour ${g.firstName}`;
-    document.querySelector("#logoutBtn")?.addEventListener("click",logout);
-  }
-
-  function setupRsvp(){
-    const g=guard(); if(!g)return;
-    const select=document.querySelector("#peopleCount");
-    for(let i=1;i<=g.maxGuests;i++){const o=document.createElement("option");o.value=i;o.textContent=`${i} personne${i>1?"s":""}`;select.appendChild(o)}
-    document.querySelector("#allowedText").textContent=`Votre invitation permet jusqu'à ${g.maxGuests} personne${g.maxGuests>1?"s":""}.`;
-    document.querySelector("#attendance").addEventListener("change",e=>{
-      document.querySelector("#peopleBlock").style.display=e.target.value==="yes"?"block":"none";
-      document.querySelector("#companionsBlock").style.display=e.target.value==="yes"?"block":"none";
+  async function fn(name, body) {
+    const url=`${C.supabase.url}/functions/v1/${name}`;
+    const res=await fetch(url,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","apikey":C.supabase.anonKey,"Authorization":`Bearer ${C.supabase.anonKey}`},
+      body:JSON.stringify(body)
     });
-    document.querySelector("#rsvpForm").addEventListener("submit",async e=>{
-      e.preventDefault();
-      const payload={...g,attendance:attendance.value,peopleCount:Number(peopleCount.value||0),companions:companions.value,diet:diet.value};
-      if(cfg.rsvpEndpoint){
-        try{const r=await fetch(cfg.rsvpEndpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});if(!r.ok)throw new Error("Erreur serveur.");}
-        catch(ex){rsvpError.textContent=ex.message;rsvpError.hidden=false;return}
-      } else {
-        localStorage.setItem("rsvp",JSON.stringify(payload));
-      }
-      rsvpError.hidden=true;rsvpMessage.textContent="Votre réponse a bien été enregistrée.";rsvpMessage.hidden=false;
-    });
+    let data={}; try{data=await res.json()}catch{}
+    if(!res.ok) throw new Error(data.error || "Une erreur est survenue.");
+    return data;
   }
 
-  function setupPhotos(){
-    const g=guard(); if(!g)return;
-    const input=document.querySelector("#photoInput"), btn=document.querySelector("#uploadBtn"), status=document.querySelector("#photoStatus");
-    const MAX=23;
-    btn.addEventListener("click",async()=>{
-      const files=[...input.files];
-      if(!files.length){status.textContent="Sélectionnez au moins une photo.";return}
-      if(files.length>MAX){status.textContent=`Maximum ${MAX} photos par personne.`;return}
-      if(!cfg.supabase.url || cfg.supabase.url.includes("REMPLACE")){status.textContent="Le stockage photo n'est pas encore configuré. Voir README.";return}
-      status.textContent="Envoi en cours…";
-      // Upload Supabase intentionally left as a small integration point:
-      // configure Storage bucket + RLS policies, then use supabase-js or REST.
-      status.textContent="Le stockage Supabase est configuré côté projet mais l'upload doit être activé dans le README.";
-    });
+  async function saveRsvp(payload){
+    if(!C.supabase.url || C.supabase.url.includes("REMPLACE")) throw new Error("Supabase n’est pas encore configuré.");
+    return fn(C.functions.saveRsvp,payload);
   }
 
-  document.addEventListener("DOMContentLoaded",()=>{
-    if(document.querySelector("#loginForm")) document.querySelector("#loginForm").addEventListener("submit",login);
-    if(document.querySelector("#guestName")) setupApp();
-    if(document.querySelector("#rsvpForm")) setupRsvp();
-    if(document.querySelector("#photoInput")) setupPhotos();
-  });
+  async function loadRsvp(guest){
+    if(!C.supabase.url || C.supabase.url.includes("REMPLACE")) return null;
+    try{return await fn(C.functions.saveRsvp,{action:"get",guest_id:guest.invite_code})}catch{return null}
+  }
+
+  async function uploadPhotos(guest, files){
+    if(files.length>23) throw new Error("Vous ne pouvez pas sélectionner plus de 23 photos à la fois.");
+    if(!C.supabase.url || C.supabase.url.includes("REMPLACE")) throw new Error("Supabase n’est pas encore configuré.");
+    const session=await fn(C.functions.photoSession,{guest_id:guest.invite_code,count:files.length});
+    const sb=supabase.createClient(C.supabase.url,C.supabase.anonKey);
+    for(let i=0;i<files.length;i++){
+      const f=files[i];
+      if(!f.type.startsWith("image/")) throw new Error(`"${f.name}" n’est pas une image.`);
+      if(f.size>15*1024*1024) throw new Error(`"${f.name}" dépasse 15 Mo.`);
+      const item=session.uploads[i];
+      const {error}=await sb.storage.from(C.supabase.bucket).uploadToSignedUrl(item.path,item.token,f,{contentType:f.type,upsert:false});
+      if(error) throw new Error(`Échec de l’envoi de "${f.name}".`);
+      const record=await fn(C.functions.photoSession,{action:"confirm",guest_id:guest.invite_code,photo:{path:item.path,name:f.name,type:f.type,size:f.size}});
+      if(!record.ok) throw new Error("La photo n’a pas pu être enregistrée.");
+    }
+    return true;
+  }
+
+  async function listPhotos(guest){
+    const data=await fn(C.functions.photoList,{guest_id:guest.invite_code});
+    return data.photos||[];
+  }
+
+  return {findGuest,saveSession,getSession,requireSession,logout,saveRsvp,loadRsvp,uploadPhotos,listPhotos};
 })();

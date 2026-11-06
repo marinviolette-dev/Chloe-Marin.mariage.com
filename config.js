@@ -1,32 +1,18 @@
-/*
-  CHLOÉ & MARIN — CONFIG
-  GitHub Pages + Supabase + Google Sheets
-
-  IMPORTANT:
-  - Only put the Supabase ANON/PUBLISHABLE key here.
-  - NEVER put a service_role/secret key in this file.
-*/
 window.MARRIAGE_CONFIG = {
   couple: {
     firstName: "Chloé",
     secondName: "Marin",
-    year: "2027",
-    domain: "https://chloeetmarin.fr"
+    year: "2027"
   },
-
-  // Google Sheets > File > Share > Publish to web > CSV.
-  // Recommended columns:
-  // firstName,lastName,inviteCode,maxGuests
   guestSheetCsvUrl: "https://docs.google.com/spreadsheets/d/12gbTMlem0s8YRrA3MKDIOTfgRaKYHh8uJffcl4UwgmI/export?format=csv&gid=0",
-
   supabase: {
-    url: "https://iksdthewqediefbkgcri.supabase.co",
-    anonKey: "sb_publishable_wCXAGVo1tIhCYzsREkHRgw_cA8Ecboe",
-    bucket: "Pellicules"
+    url: "REMPLACE_PROJECT_URL",
+    anonKey: "REMPLACE_PUBLISHABLE_OR_ANON_KEY",
+    bucket: "wedding-photos"
   },
-
-  // Supabase Edge Function URL for RSVP writes.
-  // Example:
-  // https://REMPLACE_PROJECT.supabase.co/functions/v1/save-rsvp
-  rsvpEndpoint: "https://REMPLACE_PROJECT.supabase.co/functions/v1/save-rsvp"
+  functions: {
+    saveRsvp: "save-rsvp",
+    photoSession: "photo-session",
+    photoList: "photo-list"
+  }
 };

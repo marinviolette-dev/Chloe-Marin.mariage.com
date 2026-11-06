@@ -1,150 +1,97 @@
-# Chloé & Marin — site de mariage
+# Chloé & Marin — site mariage V3
 
-## Stack
+## Architecture
 
-- Frontend : HTML / CSS / JavaScript
-- Hébergement : GitHub Pages
-- Domaine : `https://chloeetmarin.fr`
-- Base de données + stockage : Supabase
-- Liste invités : Google Sheets publié en CSV
-- Photos : Supabase Storage
+- GitHub Pages : hébergement statique gratuit pour un dépôt public.
+- Google Sheets : liste des invités.
+- Supabase : RSVP + stockage privé des photos.
+- Aucun mot de passe ni service_role n'est placé dans le navigateur.
 
-## 1. Mettre le site sur GitHub
+## 1. Google Sheets
 
-Crée un repository GitHub, puis dépose le contenu de ce dossier à la racine.
+La feuille utilisée est celle du mariage.
 
-GitHub > Settings > Pages > Build and deployment > Source: GitHub Actions ou Deploy from branch.
+Colonnes attendues :
+- B : nom
+- G : nombre maximum d'adultes / invités
+- H : nombre d'enfants
+- I : identifiant de connexion personnalisé
 
-Pour une configuration simple : `main` + `/ (root)`.
+Le maximum affiché et contrôlé est `G + H`.
 
-## 2. Domaine chloeetmarin.fr
+Le CSV utilisé par le site est configuré dans `config.js`.
 
-Le domaine doit être acheté et géré chez un registrar/DNS.
+La feuille doit être publiée/accessible en lecture via le lien CSV.
 
-Dans GitHub Pages, ajoute :
-`chloeetmarin.fr`
+## 2. GitHub Pages
 
-Puis configure les DNS indiqués par GitHub chez ton registrar.
+Le dépôt doit être public avec GitHub Free.
 
-Le HTTPS est ensuite fourni par GitHub Pages après validation du domaine.
+GitHub :
+Settings > Pages > Build and deployment > Source: Deploy from a branch
+Branch: main
+Folder: / (root)
 
-## 3. Google Sheets pour les invités
+L'adresse sera :
+https://VOTRE-PSEUDO.github.io/NOM-DU-REPO/
 
-Utilise Google Sheets plutôt qu'un Google Doc.
+## 3. Supabase
 
-Colonnes minimales :
+Créer un projet sur https://supabase.com/
 
-| firstName | lastName | inviteCode | maxGuests |
-|---|---|---|---:|
-| Jean | Dupont | CM-1234 | 2 |
-| Marie | Martin | CM-5688 | 1 |
+Dans SQL Editor, exécuter `supabase_schema.sql`.
 
-Publie uniquement la feuille utile en CSV :
+Créer/laisser le bucket privé `wedding-photos`.
 
-Google Sheets > Fichier > Partager > Publier sur le Web > Feuille > CSV.
+### Déployer les Edge Functions
 
-Copie l'URL dans `config.js`.
+Installer Supabase CLI puis, dans ce dossier :
 
-### Important
+supabase login
+supabase link --project-ref VOTRE_PROJECT_REF
 
-Le CSV publié est lisible publiquement. Ne mets donc aucune donnée sensible dedans.
+Définir les secrets :
+supabase secrets set GUEST_SHEET_CSV_URL="https://docs.google.com/spreadsheets/d/12gbTMlem0s8YRrA3MKDIOTfgRaKYHh8uJffcl4UwgmI/export?format=csv&gid=0"
 
-Le code d'invitation est recommandé pour éviter qu'une personne connaissant simplement un nom puisse accéder à une invitation.
+Déployer :
+supabase functions deploy save-rsvp
+supabase functions deploy photo-session
+supabase functions deploy photo-list
 
-## 4. Supabase — configuration gratuite
+Les fonctions utilisent automatiquement SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY fournis par Supabase dans l'environnement Edge Function.
 
-Créer un projet sur Supabase.
+## 4. config.js
 
-Dans Supabase :
-- Project Settings > API
-- copie l'URL du projet dans `config.js`
-- copie la clé ANON/PUBLISHABLE dans `config.js`
+Remplacer seulement :
+- REMPLACE_PROJECT_URL
+- REMPLACE_PUBLISHABLE_OR_ANON_KEY
 
-NE COPIE JAMAIS la clé `service_role` dans le site GitHub.
+Ne jamais mettre `service_role` dans config.js.
 
-### Tables
+## 5. Limite photos
 
-Créer une table `guests` :
+La limite de 23 est contrôlée :
+- dans l'interface,
+- et surtout côté Edge Function avant création des uploads signés.
 
-- `id` uuid primary key
-- `first_name` text
-- `last_name` text
-- `invite_code` text unique
-- `max_guests` integer
-- `created_at` timestamptz default now()
+Le bucket est privé. Les photos sont servies avec des URLs signées temporaires.
 
-Créer une table `rsvps` :
+## 6. QR codes
 
-- `id` uuid primary key
-- `guest_id` uuid references guests(id)
-- `attendance` text
-- `people_count` integer
-- `companions` text
-- `diet` text
-- `created_at` timestamptz default now()
-- `updated_at` timestamptz default now()
+Tous les QR codes peuvent pointer vers la même URL GitHub Pages.
 
-Créer un bucket Storage :
-`wedding-photos`
+L'identifiant personnel de la colonne I est ensuite saisi par l'invité.
 
-Pour les photos, prévoir des chemins du type :
-`guest/<guest_id>/<uuid>-photo.jpg`
-
-La limite de 23 photos doit être contrôlée côté serveur, pas uniquement dans le navigateur.
-
-## 5. RSVP sécurisé
-
-La version de base utilise `rsvpEndpoint` dans `config.js`.
-
-Créer une Supabase Edge Function :
-`save-rsvp`
-
-Elle reçoit :
-```json
-{
-  "inviteCode": "CM-1234",
-  "attendance": "yes",
-  "peopleCount": 2,
-  "companions": "Prénom Nom",
-  "diet": "Sans gluten"
-}
-```
-
-La fonction doit :
-1. retrouver l'invité avec `invite_code`;
-2. vérifier `peopleCount <= max_guests`;
-3. insérer ou mettre à jour le RSVP;
-4. ne jamais exposer une clé secrète au navigateur.
-
-## 6. Photos
-
-Le frontend prévoit 23 photos maximum par personne.
-
-Pour une vraie mise en production :
-- vérifier le nombre de photos déjà enregistrées côté serveur;
-- refuser toute nouvelle photo au-delà de 23;
-- limiter les types MIME;
-- limiter la taille maximale d'une photo;
-- utiliser les politiques Supabase Storage/RLS.
-
-## 7. Personnalisation
-
-Modifier :
-- `config.js` pour les réglages ;
-- les fichiers HTML pour les textes ;
-- `style.css` pour le design ;
-- `assets/` pour les photos/logos.
-
-## 8. Avant ouverture aux invités
+## 7. Avant d'envoyer les invitations
 
 Tester :
-- un invité à 1 personne ;
-- un invité à 2 personnes ;
-- un invité à 4 personnes ;
-- un mauvais code ;
-- un RSVP ;
-- un RSVP modifié ;
-- 23 photos ;
-- tentative de 24e photo ;
-- accès mobile ;
-- domaine HTTPS.
+1. connexion avec un identifiant réel ;
+2. RSVP à 1 personne ;
+3. tentative au-dessus de G+H ;
+4. modification d'un RSVP ;
+5. upload de 1 photo ;
+6. upload jusqu'à 23 ;
+7. tentative de 24e photo ;
+8. affichage des photos ;
+9. déconnexion ;
+10. test mobile.

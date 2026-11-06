@@ -1,29 +1,63 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>La pellicule — Chloé & Marin</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>La pellicule — Chloé & Marin</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <header class="topbar"><a class="brand" href="app.html">C<span>&</span>M</a><a class="back-link" href="app.html">← Mon espace</a></header>
-  <main class="content">
-    <section class="content-card">
-      <p class="eyebrow">Souvenirs</p>
-      <h1>La pellicule</h1>
-      <p class="muted">Partagez jusqu'à <strong>23 photos par personne</strong>. Les photos seront visibles par les invités selon la configuration choisie.</p>
-
-      <div class="upload-box">
-        <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple>
-        <button id="uploadBtn" class="button" type="button">Ajouter mes photos</button>
-        <p id="photoStatus" class="small"></p>
-      </div>
-
-      <div id="photoGrid" class="photo-grid"></div>
-    </section>
-  </main>
-  <script src="config.js"></script>
-  <script src="app.js"></script>
+<header class="topbar"><a class="brand" href="app.html">Chloé & Marin</a><a class="text-link" href="app.html">Mon espace</a></header>
+<main class="page">
+<section class="card">
+<p class="eyebrow">La pellicule</p>
+<h1>Vos photos</h1>
+<p class="muted">Partagez jusqu’à <strong>23 photos</strong>. Les photos seront ajoutées à votre espace personnel.</p>
+<div class="upload-box">
+<label class="button" for="photosInput">Choisir des photos</label>
+<input id="photosInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden>
+<p id="selection" class="small">Aucune photo sélectionnée.</p>
+<button id="uploadButton" class="button full" disabled>Envoyer les photos</button>
+<p id="photoMessage" class="message" role="status"></p>
+</div>
+<h2 class="section-title">Mes photos</h2>
+<div id="gallery" class="photo-grid"></div>
+</section>
+</main>
+<script src="config.js"></script><script src="app.js"></script>
+<script>
+const guest = MarriageApp.requireSession();
+const input=document.getElementById('photosInput');
+const selection=document.getElementById('selection');
+const button=document.getElementById('uploadButton');
+const message=document.getElementById('photoMessage');
+let selected=[];
+function refreshSelection(){
+  selected=Array.from(input.files || []);
+  selection.textContent=selected.length ? `${selected.length} photo${selected.length>1?'s':''} sélectionnée${selected.length>1?'s':''}.` : 'Aucune photo sélectionnée.';
+  button.disabled=!selected.length;
+}
+input.addEventListener('change',refreshSelection);
+async function loadGallery(){
+  try {
+    const photos=await MarriageApp.listPhotos(guest);
+    document.getElementById('gallery').innerHTML=photos.length ? photos.map(p=>`<figure><img src="${p.url}" alt="" loading="lazy"><figcaption>${new Date(p.created_at).toLocaleDateString('fr-FR')}</figcaption></figure>`).join('') : '<p class="muted">Aucune photo pour le moment.</p>';
+  } catch(e) { message.textContent=e.message; message.className='message error'; }
+}
+button.addEventListener('click',async()=>{
+  if(!selected.length) return;
+  message.textContent='Vérification et envoi…'; message.className='message';
+  button.disabled=true;
+  try {
+    await MarriageApp.uploadPhotos(guest, selected);
+    message.textContent='Photos envoyées avec succès.';
+    message.className='message success';
+    input.value=''; selected=[]; refreshSelection(); await loadGallery();
+  } catch(e) {
+    message.textContent=e.message; message.className='message error'; button.disabled=false;
+  }
+});
+if(guest) loadGallery();
+</script>
 </body>
 </html>
