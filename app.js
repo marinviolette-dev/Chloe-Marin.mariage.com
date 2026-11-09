@@ -97,35 +97,64 @@ window.MarriageApp = (() => {
   // RECHERCHE INVITÉ DANS GOOGLE SHEET
   // ==================================================
 
-  async function findGuest(identifier) {
-    const url = C.guestSheetCsvUrl;
+ async function findGuest(identifier) {
+  const wanted = normalize(identifier);
 
-    if (!url || url.includes("REMPLACE")) {
-      throw new Error(
-        "La liste des invités n’est pas configurée."
-      );
+  if (!wanted) {
+    return null;
+  }
+
+  const url = C.guestSheetCsvUrl;
+
+  const response = await fetch(url + "&t=" + Date.now(), {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error("Impossible de lire la liste des invités.");
+  }
+
+  const csv = await response.text();
+  const rows = parseCSV(csv);
+
+  console.log("CSV chargé :", rows.length, "lignes");
+  console.log("Recherche du code :", wanted);
+
+  if (rows.length < 2) {
+    throw new Error("La liste des invités est vide ou inaccessible.");
+  }
+
+  // Colonnes fixes de ta feuille Google :
+  // B = NOMS      → index 1
+  // G = ADULTES   → index 6
+  // H = ENFANTS   → index 7
+  // I = CODES     → index 8
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+
+    const name = String(row[1] || "").trim();
+    const adults = parseInt(String(row[6] || "").trim(), 10) || 0;
+    const children = parseInt(String(row[7] || "").trim(), 10) || 0;
+    const code = normalize(row[8] || "");
+
+    if (code) {
+      console.log("Code trouvé dans la ligne", i + 1, ":", code);
     }
 
-    const response = await fetch(url, {
-      method: "GET",
-      cache: "no-store"
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        "Impossible de charger la liste des invités."
-      );
+    if (code === wanted) {
+      return {
+        invite_code: code,
+        full_name: name,
+        adults,
+        children,
+        max_guests: adults + children
+      };
     }
+  }
 
-    const csv = await response.text();
-
-    const rows = parseCSV(csv);
-
-    if (rows.length < 2) {
-      throw new Error(
-        "La feuille des invités est vide."
-      );
-    }
+  return null;
+}
 
     /*
      * ==================================================
