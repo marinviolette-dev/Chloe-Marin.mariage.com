@@ -2,8 +2,15 @@ window.MarriageApp = (() => {
   const C = window.MARRIAGE_CONFIG;
   const SESSION_KEY = "chloe-marin-guest";
 
+  // --------------------------------------------------
+  // UTILITAIRES
+  // --------------------------------------------------
+
   function normalize(value) {
-    return String(value ?? "").trim().toLowerCase();
+    return String(value ?? "")
+      .replace(/^\uFEFF/, "")
+      .trim()
+      .toLowerCase();
   }
 
   function parseCSVLine(line) {
@@ -47,8 +54,13 @@ window.MarriageApp = (() => {
         i++;
       } else if (char === '"') {
         quoted = !quoted;
-      } else if ((char === "\n" || char === "\r") && !quoted) {
-        if (char === "\r" && next === "\n") i++;
+      } else if (
+        (char === "\n" || char === "\r") &&
+        !quoted
+      ) {
+        if (char === "\r" && next === "\n") {
+          i++;
+        }
 
         row.push(cell);
         cell = "";
@@ -74,32 +86,51 @@ window.MarriageApp = (() => {
     return rows;
   }
 
+  // --------------------------------------------------
+  // GOOGLE SHEET
+  // --------------------------------------------------
+
   async function findGuest(identifier) {
     const url = C.guestSheetCsvUrl;
 
     if (!url || url.includes("REMPLACE")) {
-      throw new Error("La liste des invités n’est pas configurée.");
+      throw new Error(
+        "La liste des invités n’est pas configurée."
+      );
     }
 
     const response = await fetch(url, {
-      cache: "no-store",
+      cache: "no-store"
     });
 
     if (!response.ok) {
-      throw new Error("Impossible de charger la liste des invités.");
+      throw new Error(
+        "Impossible de charger la liste des invités."
+      );
     }
 
-    const rows = parseCSV(await response.text());
+    const csv = await response.text();
+    const rows = parseCSV(csv);
 
     if (rows.length < 2) {
-      throw new Error("La feuille des invités est vide.");
+      throw new Error(
+        "La feuille des invités est vide."
+      );
     }
 
-    const headers = rows[0].map((header) => normalize(header));
+    // ------------------------------------------------
+    // Lecture des en-têtes
+    // ------------------------------------------------
+
+    const headers = rows[0].map((header) =>
+      normalize(header)
+    );
 
     function findColumn(names, fallback) {
       for (const name of names) {
-        const index = headers.indexOf(normalize(name));
+        const index = headers.indexOf(
+          normalize(name)
+        );
 
         if (index !== -1) {
           return index;
@@ -109,70 +140,130 @@ window.MarriageApp = (() => {
       return fallback;
     }
 
-    // Colonnes du Google Sheet :
-    // B = nom
-    // G = adultes
-    // H = enfants
-    // I = identifiant personnalisé
+    // ------------------------------------------------
+    // TON GOOGLE SHEET
+    //
+    // B = NOMS
+    // G = ADULTES nb
+    // H = ENFANTS nb
+    // I = CODES
+    // ------------------------------------------------
 
     const nameIndex = findColumn(
-      ["nom", "noms", "nom complet", "name"],
+      [
+        "nom",
+        "noms",
+        "nom complet",
+        "name"
+      ],
       1
     );
 
     const adultsIndex = findColumn(
-      ["adultes", "adult", "nombre adultes", "max adultes"],
+      [
+        "adultes nb",
+        "adultes",
+        "adult",
+        "nombre adultes",
+        "max adultes"
+      ],
       6
     );
 
     const childrenIndex = findColumn(
-      ["enfants", "enfant", "nombre enfants", "max enfants"],
+      [
+        "enfants nb",
+        "enfants",
+        "enfant",
+        "nombre enfants",
+        "max enfants"
+      ],
       7
     );
 
     const inviteCodeIndex = findColumn(
       [
-        "identifiant",
-        "identifiant de connexion",
-        "login",
+        // IMPORTANT :
+        // Ton Google Sheet utilise "CODES"
+        "codes",
+
         "code",
         "code invitation",
+        "code_invitation",
+
+        "identifiant",
+        "identifiant de connexion",
+
+        "login",
         "invite_code",
         "invitation"
       ],
       8
     );
 
+    // ------------------------------------------------
+    // RECHERCHE DU CODE
+    // ------------------------------------------------
+
     const wanted = normalize(identifier);
+
+    if (!wanted) {
+      return null;
+    }
 
     const row = rows
       .slice(1)
       .find((currentRow) => {
-        return normalize(currentRow[inviteCodeIndex]) === wanted;
+        const code = normalize(
+          currentRow[inviteCodeIndex]
+        );
+
+        return code === wanted;
       });
 
     if (!row) {
       return null;
     }
 
+    // ------------------------------------------------
+    // INFOS INVITÉ
+    // ------------------------------------------------
+
     const adults =
-      parseInt(String(row[adultsIndex] || "0"), 10) || 0;
+      parseInt(
+        String(row[adultsIndex] || "0"),
+        10
+      ) || 0;
 
     const children =
-      parseInt(String(row[childrenIndex] || "0"), 10) || 0;
+      parseInt(
+        String(row[childrenIndex] || "0"),
+        10
+      ) || 0;
 
-    const maxGuests = adults + children;
+    const maxGuests =
+      adults + children;
 
-    const fullName = String(row[nameIndex] || "").trim();
+    const fullName =
+      String(row[nameIndex] || "").trim();
+
+    const inviteCode =
+      String(
+        row[inviteCodeIndex] || ""
+      ).trim();
 
     return {
-      invite_code: String(row[inviteCodeIndex] || "").trim(),
+      invite_code: inviteCode,
       full_name: fullName,
-      adults,
-      children,
-      max_guests: maxGuests,
+      adults: adults,
+      children: children,
+      max_guests: maxGuests
     };
   }
+
+  // --------------------------------------------------
+  // SESSION INVITÉ
+  // --------------------------------------------------
 
   function saveSession(guest) {
     localStorage.setItem(
@@ -184,7 +275,9 @@ window.MarriageApp = (() => {
   function getSession() {
     try {
       return JSON.parse(
-        localStorage.getItem(SESSION_KEY) || "null"
+        localStorage.getItem(
+          SESSION_KEY
+        ) || "null"
       );
     } catch {
       return null;
@@ -203,23 +296,38 @@ window.MarriageApp = (() => {
   }
 
   function logout() {
-    localStorage.removeItem(SESSION_KEY);
-    window.location.href = "login.html";
+    localStorage.removeItem(
+      SESSION_KEY
+    );
+
+    window.location.href =
+      "login.html";
   }
 
-  async function callFunction(functionName, body) {
+  // --------------------------------------------------
+  // SUPABASE EDGE FUNCTIONS
+  // --------------------------------------------------
+
+  async function callFunction(
+    functionName,
+    body
+  ) {
     if (
       !C.supabase.url ||
       C.supabase.url.includes("REMPLACE")
     ) {
-      throw new Error("Supabase n’est pas configuré.");
+      throw new Error(
+        "Supabase n’est pas configuré."
+      );
     }
 
     if (
       !C.supabase.anonKey ||
       C.supabase.anonKey.includes("REMPLACE")
     ) {
-      throw new Error("La clé Supabase n’est pas configurée.");
+      throw new Error(
+        "La clé Supabase n’est pas configurée."
+      );
     }
 
     const url =
@@ -231,10 +339,11 @@ window.MarriageApp = (() => {
       headers: {
         "Content-Type": "application/json",
         "apikey": C.supabase.anonKey,
-        "Authorization": `Bearer ${C.supabase.anonKey}`,
+        "Authorization":
+          `Bearer ${C.supabase.anonKey}`
       },
 
-      body: JSON.stringify(body),
+      body: JSON.stringify(body)
     });
 
     let data = {};
@@ -248,6 +357,7 @@ window.MarriageApp = (() => {
     if (!response.ok) {
       throw new Error(
         data.error ||
+        data.message ||
         `Erreur serveur (${response.status}).`
       );
     }
@@ -255,22 +365,27 @@ window.MarriageApp = (() => {
     return data;
   }
 
+  // --------------------------------------------------
+  // RSVP
+  // --------------------------------------------------
+
   async function saveRsvp(payload) {
     const guest = getSession();
 
     /*
-     * IMPORTANT :
-     * L'identifiant est maintenant récupéré depuis
+     * L'identifiant est récupéré depuis
      * la session du navigateur.
      *
-     * On ne dépend donc plus de guest_id envoyé
-     * par le formulaire.
+     * Plusieurs noms sont acceptés en secours
+     * pour rester compatible avec l'ancien formulaire.
      */
 
     const inviteCode =
       guest?.invite_code ||
-      payload.inviteCode ||
-      payload.guest_id;
+      guest?.code ||
+      payload?.inviteCode ||
+      payload?.invite_code ||
+      payload?.guest_id;
 
     if (!inviteCode) {
       throw new Error(
@@ -279,53 +394,65 @@ window.MarriageApp = (() => {
     }
 
     const attendance =
-      payload.attendance === true ||
-      payload.attendance === "yes" ||
-      payload.attendance === "oui";
+      payload?.attendance === true ||
+      payload?.attendance === "yes" ||
+      payload?.attendance === "oui";
 
     const peopleCount = Number(
-      payload.peopleCount ??
-      payload.people_count ??
+      payload?.peopleCount ??
+      payload?.people_count ??
       0
     );
 
     return callFunction(
       C.functions.saveRsvp,
       {
-        inviteCode: inviteCode,
+        inviteCode:
+          String(inviteCode).trim(),
 
-        attendance: attendance,
+        attendance:
+          attendance,
 
-        peopleCount: peopleCount,
+        peopleCount:
+          peopleCount,
 
         companions:
-          payload.companions ?? "",
+          payload?.companions ?? "",
 
         diet:
-          payload.diet ?? "",
+          payload?.diet ?? ""
       }
     );
   }
+
+  // --------------------------------------------------
+  // CHARGEMENT RSVP
+  // --------------------------------------------------
 
   async function loadRsvp(guest) {
     const currentGuest =
       guest || getSession();
 
-    if (!currentGuest?.invite_code) {
+    const inviteCode =
+      currentGuest?.invite_code ||
+      currentGuest?.code;
+
+    if (!inviteCode) {
       throw new Error(
         "Identifiant d’invitation manquant."
       );
     }
 
-    const data = await callFunction(
-      C.functions.saveRsvp,
-      {
-        action: "get",
+    const data =
+      await callFunction(
+        C.functions.saveRsvp,
+        {
+          action: "get",
 
-        inviteCode:
-          currentGuest.invite_code,
-      }
-    );
+          inviteCode:
+            String(inviteCode).trim()
+        }
+      );
 
     if (!data.rsvp) {
       return null;
@@ -346,21 +473,35 @@ window.MarriageApp = (() => {
         data.rsvp.companions || "",
 
       diet:
-        data.rsvp.diet || "",
+        data.rsvp.diet || ""
     };
   }
 
-  async function uploadPhotos(guest, files) {
+  // --------------------------------------------------
+  // PHOTOS
+  // --------------------------------------------------
+
+  async function uploadPhotos(
+    guest,
+    files
+  ) {
     const currentGuest =
       guest || getSession();
 
-    if (!currentGuest?.invite_code) {
+    const inviteCode =
+      currentGuest?.invite_code ||
+      currentGuest?.code;
+
+    if (!inviteCode) {
       throw new Error(
         "Identifiant d’invitation manquant."
       );
     }
 
-    if (!files || files.length === 0) {
+    if (
+      !files ||
+      files.length === 0
+    ) {
       return true;
     }
 
@@ -371,29 +512,70 @@ window.MarriageApp = (() => {
     }
 
     for (const file of files) {
-      if (!file.type.startsWith("image/")) {
+      if (
+        !file.type.startsWith("image/")
+      ) {
         throw new Error(
           `"${file.name}" n’est pas une image.`
         );
       }
 
-      if (file.size > 15 * 1024 * 1024) {
+      if (
+        file.size >
+        15 * 1024 * 1024
+      ) {
         throw new Error(
           `"${file.name}" dépasse 15 Mo.`
         );
       }
     }
 
+    // ------------------------------------------------
+    // Demande des URLs d'upload signées
+    // ------------------------------------------------
+
     const session =
       await callFunction(
         C.functions.photoSession,
         {
           inviteCode:
-            currentGuest.invite_code,
+            String(inviteCode).trim(),
 
-          count: files.length,
+          count:
+            files.length
         }
       );
+
+    if (
+      !session ||
+      !Array.isArray(session.uploads)
+    ) {
+      throw new Error(
+        "La session d’envoi des photos est invalide."
+      );
+    }
+
+    if (
+      session.uploads.length !==
+      files.length
+    ) {
+      throw new Error(
+        "Le serveur n’a pas fourni toutes les autorisations d’envoi."
+      );
+    }
+
+    // ------------------------------------------------
+    // Client Supabase pour Storage
+    // ------------------------------------------------
+
+    if (
+      !window.supabase ||
+      !window.supabase.createClient
+    ) {
+      throw new Error(
+        "La bibliothèque Supabase n’est pas chargée."
+      );
+    }
 
     const supabaseClient =
       window.supabase.createClient(
@@ -403,13 +585,30 @@ window.MarriageApp = (() => {
 
     const confirmations = [];
 
+    // ------------------------------------------------
+    // Upload des photos
+    // ------------------------------------------------
+
     for (
       let i = 0;
       i < files.length;
       i++
     ) {
-      const file = files[i];
-      const upload = session.uploads[i];
+      const file =
+        files[i];
+
+      const upload =
+        session.uploads[i];
+
+      if (
+        !upload ||
+        !upload.path ||
+        !upload.token
+      ) {
+        throw new Error(
+          `Autorisation d’envoi manquante pour "${file.name}".`
+        );
+      }
 
       const { error } =
         await supabaseClient.storage
@@ -419,8 +618,11 @@ window.MarriageApp = (() => {
             upload.token,
             file,
             {
-              contentType: file.type,
-              upsert: false,
+              contentType:
+                file.type,
+
+              upsert:
+                false
             }
           );
 
@@ -441,9 +643,13 @@ window.MarriageApp = (() => {
           file.type,
 
         sizeBytes:
-          file.size,
+          file.size
       });
     }
+
+    // ------------------------------------------------
+    // Confirmation auprès de Supabase
+    // ------------------------------------------------
 
     await callFunction(
       C.functions.photoSession,
@@ -451,21 +657,29 @@ window.MarriageApp = (() => {
         action: "confirm",
 
         inviteCode:
-          currentGuest.invite_code,
+          String(inviteCode).trim(),
 
         uploads:
-          confirmations,
+          confirmations
       }
     );
 
     return true;
   }
 
+  // --------------------------------------------------
+  // LISTE DES PHOTOS
+  // --------------------------------------------------
+
   async function listPhotos(guest) {
     const currentGuest =
       guest || getSession();
 
-    if (!currentGuest?.invite_code) {
+    const inviteCode =
+      currentGuest?.invite_code ||
+      currentGuest?.code;
+
+    if (!inviteCode) {
       throw new Error(
         "Identifiant d’invitation manquant."
       );
@@ -476,20 +690,24 @@ window.MarriageApp = (() => {
         C.functions.photoList,
         {
           inviteCode:
-            currentGuest.invite_code,
+            String(inviteCode).trim()
         }
       );
 
-    return (data.photos || []).map(
-      (photo) => ({
-        ...photo,
+    return (
+      data.photos || []
+    ).map((photo) => ({
+      ...photo,
 
-        created_at:
-          photo.createdAt ||
-          photo.created_at,
-      })
-    );
+      created_at:
+        photo.createdAt ||
+        photo.created_at
+    }));
   }
+
+  // --------------------------------------------------
+  // API PUBLIQUE
+  // --------------------------------------------------
 
   return {
     findGuest,
@@ -500,6 +718,6 @@ window.MarriageApp = (() => {
     saveRsvp,
     loadRsvp,
     uploadPhotos,
-    listPhotos,
+    listPhotos
   };
 })();
