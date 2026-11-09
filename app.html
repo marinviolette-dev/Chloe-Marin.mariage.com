@@ -7,6 +7,7 @@
   <title>Mon espace — Chloé & Marin</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <header class="topbar">
     <a class="brand" href="app.html">Chloé & Marin</a>
@@ -52,24 +53,26 @@
   </main>
 
   <script src="config.js"></script>
-  <script src="app.js?v=20261109-3"></script>
+  <script src="app.js?v=20261109-5"></script>
 
   <script>
-    const guest = MarriageApp.requireSession();
+    (function () {
+      const guest = MarriageApp.requireSession();
 
-    if (guest) {
-      const firstName =
-        guest.first_name ||
-        guest.full_name ||
-        "";
+      if (!guest) return;
 
-      const firstNameOnly = firstName.trim().split(/\s+/)[0];
+      // On utilise exclusivement le prénom, jamais le nom de famille.
+      const rawFirstName = String(guest.first_name || "").trim();
 
-      document.getElementById("welcomeName").textContent =
-        firstNameOnly
-          ? `Bonjour ${firstNameOnly}`
-          : "Bonjour !";
-    }
+      // On conserve uniquement le premier prénom.
+      const firstName = rawFirstName.split(/\s+/)[0];
+
+      const welcomeElement = document.getElementById("welcomeName");
+
+      welcomeElement.textContent = firstName
+        ? "Bonjour " + firstName
+        : "Bonjour !";
+    })();
   </script>
 </body>
 </html>
