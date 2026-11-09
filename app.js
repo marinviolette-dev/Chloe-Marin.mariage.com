@@ -13,35 +13,10 @@ window.MarriageApp = (() => {
       .toLowerCase();
   }
 
-  // Parse une ligne CSV en respectant les champs entre guillemets
-  function parseCSVLine(line) {
-    const result = [];
-    let current = "";
-    let inQuotes = false;
+  // ==================================================
+  // PARSEUR CSV
+  // ==================================================
 
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const next = line[i + 1];
-
-      if (char === '"' && inQuotes && next === '"') {
-        current += '"';
-        i++;
-      } else if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === "," && !inQuotes) {
-        result.push(current);
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-
-    result.push(current);
-
-    return result;
-  }
-
-  // Parse tout le CSV
   function parseCSV(csv) {
     const rows = [];
     let row = [];
@@ -52,17 +27,27 @@ window.MarriageApp = (() => {
       const char = csv[i];
       const next = csv[i + 1];
 
+      // Double guillemet à l'intérieur d'un champ
       if (char === '"' && inQuotes && next === '"') {
         cell += '"';
         i++;
         continue;
       }
 
+      // Ouverture / fermeture d'un champ entre guillemets
       if (char === '"') {
         inQuotes = !inQuotes;
         continue;
       }
 
+      // Fin de cellule
+      if (char === "," && !inQuotes) {
+        row.push(cell);
+        cell = "";
+        continue;
+      }
+
+      // Fin de ligne
       if ((char === "\n" || char === "\r") && !inQuotes) {
         if (char === "\r" && next === "\n") {
           i++;
@@ -71,7 +56,7 @@ window.MarriageApp = (() => {
         row.push(cell);
         cell = "";
 
-        if (row.some(value => value.trim() !== "")) {
+        if (row.some(value => String(value).trim() !== "")) {
           rows.push(row);
         }
 
@@ -82,10 +67,11 @@ window.MarriageApp = (() => {
       cell += char;
     }
 
+    // Dernière cellule / dernière ligne
     if (cell !== "" || row.length > 0) {
       row.push(cell);
 
-      if (row.some(value => value.trim() !== "")) {
+      if (row.some(value => String(value).trim() !== "")) {
         rows.push(row);
       }
     }
@@ -97,91 +83,52 @@ window.MarriageApp = (() => {
   // RECHERCHE INVITÉ DANS GOOGLE SHEET
   // ==================================================
 
- async function findGuest(identifier) {
-  const wanted = normalize(identifier);
-
-  if (!wanted) {
-    return null;
-  }
-
-  const url = C.guestSheetCsvUrl;
-
-  const response = await fetch(url + "&t=" + Date.now(), {
-    cache: "no-store"
-  });
-
-  if (!response.ok) {
-    throw new Error("Impossible de lire la liste des invités.");
-  }
-
-  const csv = await response.text();
-  const rows = parseCSV(csv);
-
-  console.log("CSV chargé :", rows.length, "lignes");
-  console.log("Recherche du code :", wanted);
-
-  if (rows.length < 2) {
-    throw new Error("La liste des invités est vide ou inaccessible.");
-  }
-
-  // Colonnes fixes de ta feuille Google :
-  // B = NOMS      → index 1
-  // G = ADULTES   → index 6
-  // H = ENFANTS   → index 7
-  // I = CODES     → index 8
-
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-
-    const name = String(row[1] || "").trim();
-    const adults = parseInt(String(row[6] || "").trim(), 10) || 0;
-    const children = parseInt(String(row[7] || "").trim(), 10) || 0;
-    const code = normalize(row[8] || "");
-
-    if (code) {
-      console.log("Code trouvé dans la ligne", i + 1, ":", code);
-    }
-
-    if (code === wanted) {
-      return {
-        invite_code: code,
-        full_name: name,
-        adults,
-        children,
-        max_guests: adults + children
-      };
-    }
-  }
-
-  return null;
-}
-
-    /*
-     * ==================================================
-     * COLONNES DE TON GOOGLE SHEET
-     *
-     * B = NOMS       -> index 1
-     * G = ADULTES nb -> index 6
-     * H = ENFANTS nb -> index 7
-     * I = CODES      -> index 8
-     *
-     * On utilise volontairement les positions,
-     * car elles sont définies par ton fichier.
-     * ==================================================
-     */
-
-    const NAME_INDEX = 1;
-    const ADULTS_INDEX = 6;
-    const CHILDREN_INDEX = 7;
-    const CODE_INDEX = 8;
-
+  async function findGuest(identifier) {
     const wanted = normalize(identifier);
 
     if (!wanted) {
       return null;
     }
 
-    let foundRow = null;
+    if (!C || !C.guestSheetCsvUrl) {
+      throw new Error("L’adresse de la liste des invités n’est pas configurée.");
+    }
+
+    // Ajout d'un paramètre pour éviter le cache du navigateur
+    const separator = C.guestSheetCsvUrl.includes("?") ? "&" : "?";
+    const url = C.guestSheetCsvUrl + separator + "t=" + Date.now();
+
+    const response = await fetch(url, {
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      throw new Error("Impossible de lire la liste des invités.");
+    }
+
+    const csv = await response.text();
+    const rows = parseCSV(csv);
+
+    console.log("CSV chargé :", rows.length, "lignes");
+    console.log("Recherche du code :", wanted);
+
+    if (rows.length < 2) {
+      throw new Error("La liste des invités est vide ou inaccessible.");
+    }
+
+    /*
+     * COLONNES DE TON GOOGLE SHEET
+     *
+     * B = NOMS       -> index 1
+     * G = ADULTES nb -> index 6
+     * H = ENFANTS nb -> index 7
+     * I = CODES      -> index 8
+     */
+
+    const NAME_INDEX = 1;
+    const ADULTS_INDEX = 6;
+    const CHILDREN_INDEX = 7;
+    const CODE_INDEX = 8;
 
     for (let i = 1; i < rows.length; i++) {
       const currentRow = rows[i];
@@ -191,75 +138,59 @@ window.MarriageApp = (() => {
       }
 
       const code = normalize(
-        currentRow[CODE_INDEX]
+        currentRow[CODE_INDEX] || ""
       );
 
+      if (code) {
+        console.log(
+          "Code trouvé dans la ligne",
+          i + 1,
+          ":",
+          code
+        );
+      }
+
+      // Comparaison avec le code saisi
       if (code === wanted) {
-        foundRow = currentRow;
-        break;
+        const fullName = String(
+          currentRow[NAME_INDEX] || ""
+        ).trim();
+
+        const adults =
+          parseInt(
+            String(currentRow[ADULTS_INDEX] || "").trim(),
+            10
+          ) || 0;
+
+        const children =
+          parseInt(
+            String(currentRow[CHILDREN_INDEX] || "").trim(),
+            10
+          ) || 0;
+
+        const maxGuests = adults + children;
+
+        console.log("Invité trouvé :", {
+          fullName,
+          adults,
+          children,
+          maxGuests,
+          inviteCode: code
+        });
+
+        return {
+          invite_code: code,
+          full_name: fullName,
+          adults: adults,
+          children: children,
+          max_guests: maxGuests
+        };
       }
     }
 
-    if (!foundRow) {
-      return null;
-    }
+    console.log("Aucun invité trouvé pour :", wanted);
 
-    // ----------------------------------------------
-    // ADULTES
-    // ----------------------------------------------
-
-    const adults =
-      parseInt(
-        String(
-          foundRow[ADULTS_INDEX] ?? ""
-        ).trim(),
-        10
-      ) || 0;
-
-    // ----------------------------------------------
-    // ENFANTS
-    // ----------------------------------------------
-
-    const children =
-      parseInt(
-        String(
-          foundRow[CHILDREN_INDEX] ?? ""
-        ).trim(),
-        10
-      ) || 0;
-
-    // ----------------------------------------------
-    // NOM
-    // ----------------------------------------------
-
-    const fullName =
-      String(
-        foundRow[NAME_INDEX] ?? ""
-      ).trim();
-
-    // ----------------------------------------------
-    // CODE
-    // ----------------------------------------------
-
-    const inviteCode =
-      String(
-        foundRow[CODE_INDEX] ?? ""
-      ).trim();
-
-    // ----------------------------------------------
-    // TOTAL AUTORISÉ
-    // ----------------------------------------------
-
-    const maxGuests =
-      adults + children;
-
-    return {
-      invite_code: inviteCode,
-      full_name: fullName,
-      adults: adults,
-      children: children,
-      max_guests: maxGuests
-    };
+    return null;
   }
 
   // ==================================================
@@ -276,9 +207,7 @@ window.MarriageApp = (() => {
   function getSession() {
     try {
       return JSON.parse(
-        localStorage.getItem(
-          SESSION_KEY
-        ) || "null"
+        localStorage.getItem(SESSION_KEY) || "null"
       );
     } catch (error) {
       return null;
@@ -297,10 +226,7 @@ window.MarriageApp = (() => {
   }
 
   function logout() {
-    localStorage.removeItem(
-      SESSION_KEY
-    );
-
+    localStorage.removeItem(SESSION_KEY);
     window.location.href = "login.html";
   }
 
@@ -308,26 +234,21 @@ window.MarriageApp = (() => {
   // SUPABASE EDGE FUNCTIONS
   // ==================================================
 
-  async function callFunction(
-    functionName,
-    body
-  ) {
+  async function callFunction(functionName, body) {
     if (
+      !C ||
+      !C.supabase ||
       !C.supabase.url ||
       C.supabase.url.includes("REMPLACE")
     ) {
-      throw new Error(
-        "Supabase n’est pas configuré."
-      );
+      throw new Error("Supabase n’est pas configuré.");
     }
 
     if (
       !C.supabase.anonKey ||
       C.supabase.anonKey.includes("REMPLACE")
     ) {
-      throw new Error(
-        "La clé Supabase n’est pas configurée."
-      );
+      throw new Error("La clé Supabase n’est pas configurée.");
     }
 
     const url =
@@ -339,8 +260,7 @@ window.MarriageApp = (() => {
       headers: {
         "Content-Type": "application/json",
         "apikey": C.supabase.anonKey,
-        "Authorization":
-          `Bearer ${C.supabase.anonKey}`
+        "Authorization": `Bearer ${C.supabase.anonKey}`
       },
 
       body: JSON.stringify(body)
@@ -398,14 +318,11 @@ window.MarriageApp = (() => {
     return callFunction(
       C.functions.saveRsvp,
       {
-        inviteCode:
-          String(inviteCode).trim(),
+        inviteCode: String(inviteCode).trim(),
 
-        attendance:
-          attendance,
+        attendance: attendance,
 
-        peopleCount:
-          peopleCount,
+        peopleCount: peopleCount,
 
         companions:
           payload?.companions ?? "",
@@ -471,10 +388,7 @@ window.MarriageApp = (() => {
   // UPLOAD PHOTOS
   // ==================================================
 
-  async function uploadPhotos(
-    guest,
-    files
-  ) {
+  async function uploadPhotos(guest, files) {
     const currentGuest =
       guest || getSession();
 
@@ -487,21 +401,21 @@ window.MarriageApp = (() => {
       );
     }
 
-    if (
-      !files ||
-      files.length === 0
-    ) {
+    if (!files || files.length === 0) {
       return true;
     }
 
+    // Maximum 23 photos par envoi
     if (files.length > 23) {
       throw new Error(
         "Vous ne pouvez pas sélectionner plus de 23 photos à la fois."
       );
     }
 
+    // Vérification des fichiers
     for (const file of files) {
       if (
+        !file.type ||
         !file.type.startsWith("image/")
       ) {
         throw new Error(
@@ -510,8 +424,7 @@ window.MarriageApp = (() => {
       }
 
       if (
-        file.size >
-        15 * 1024 * 1024
+        file.size > 15 * 1024 * 1024
       ) {
         throw new Error(
           `"${file.name}" dépasse 15 Mo.`
@@ -519,6 +432,7 @@ window.MarriageApp = (() => {
       }
     }
 
+    // Demande au serveur des URLs d'upload signées
     const session =
       await callFunction(
         C.functions.photoSession,
@@ -541,14 +455,14 @@ window.MarriageApp = (() => {
     }
 
     if (
-      session.uploads.length !==
-      files.length
+      session.uploads.length !== files.length
     ) {
       throw new Error(
         "Le serveur n’a pas fourni toutes les autorisations d’envoi."
       );
     }
 
+    // Vérifie que la bibliothèque Supabase est disponible
     if (
       !window.supabase ||
       !window.supabase.createClient
@@ -566,16 +480,14 @@ window.MarriageApp = (() => {
 
     const confirmations = [];
 
+    // Upload des fichiers
     for (
       let i = 0;
       i < files.length;
       i++
     ) {
-      const file =
-        files[i];
-
-      const upload =
-        session.uploads[i];
+      const file = files[i];
+      const upload = session.uploads[i];
 
       if (
         !upload ||
@@ -595,11 +507,8 @@ window.MarriageApp = (() => {
             upload.token,
             file,
             {
-              contentType:
-                file.type,
-
-              upsert:
-                false
+              contentType: file.type,
+              upsert: false
             }
           );
 
@@ -624,6 +533,7 @@ window.MarriageApp = (() => {
       });
     }
 
+    // Confirmation auprès de la fonction Supabase
     await callFunction(
       C.functions.photoSession,
       {
@@ -641,7 +551,7 @@ window.MarriageApp = (() => {
   }
 
   // ==================================================
-  // LISTE PHOTOS
+  // LISTE DES PHOTOS
   // ==================================================
 
   async function listPhotos(guest) {
@@ -678,7 +588,7 @@ window.MarriageApp = (() => {
   }
 
   // ==================================================
-  // API
+  // API PUBLIQUE
   // ==================================================
 
   return {
