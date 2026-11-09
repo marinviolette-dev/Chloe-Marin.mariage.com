@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="fr">
 <head>
@@ -15,27 +16,51 @@
       <p class="eyebrow">Espace invité</p>
       <h1>Bienvenue</h1>
       <p class="muted">Saisissez l’identifiant personnel indiqué sur votre invitation.</p>
+
       <form id="loginForm">
         <label for="guestId">Votre identifiant</label>
-        <input id="guestId" name="guestId" autocomplete="off" autocapitalize="characters" placeholder="Ex. JEAN-DUPONT-42" required>
-        <button class="button full" type="submit">Accéder à mon espace</button>
+        <input
+          id="guestId"
+          name="guestId"
+          autocomplete="off"
+          autocapitalize="characters"
+          placeholder="Ex. JEAN-DUPONT-42"
+          required
+        >
+        <button class="button full" type="submit">
+          Accéder à mon espace
+        </button>
       </form>
+
       <p id="loginMessage" class="message" role="status"></p>
       <a class="text-link" href="index.html">Retour à l’accueil</a>
     </section>
   </main>
+
   <script src="config.js"></script>
-  <script src="app.js?v=20261109-2"></script>
+  <script src="app.js?v=20261109-3"></script>
+
   <script>
     document.getElementById('loginForm').addEventListener('submit', async (event) => {
       event.preventDefault();
+
       const message = document.getElementById('loginMessage');
+      const input = document.getElementById('guestId');
+
       message.textContent = 'Vérification…';
       message.className = 'message';
+
       try {
-        const guest = await MarriageApp.findGuest(document.getElementById('guestId').value);
-        if (!guest) throw new Error("Identifiant introuvable. Vérifiez l’identifiant inscrit sur votre invitation.");
+        const guest = await MarriageApp.findGuest(input.value);
+
+        if (!guest) {
+          throw new Error("Identifiant introuvable. Vérifiez l’identifiant inscrit sur votre invitation.");
+        }
+
+        console.log("Profil invité enregistré :", guest);
+
         MarriageApp.saveSession(guest);
+
         location.href = 'app.html';
       } catch (error) {
         message.textContent = error.message;
