@@ -61,9 +61,25 @@
 
         MarriageApp.saveSession(guest);
 
-        // Lance la musique grâce au clic de l'invité
-        if (window.WeddingMusic) {
-          await window.WeddingMusic.start();
+        // Prépare la musique et la lance pendant l'action de l'invité.
+        const music = document.getElementById("weddingMusic");
+
+        if (music) {
+          try {
+            const savedTime = parseFloat(
+              localStorage.getItem("chloe-marin-music-time") || "0"
+            );
+
+            if (!isNaN(savedTime)) {
+              music.currentTime = savedTime;
+            }
+
+            await music.play();
+
+            localStorage.setItem("chloe-marin-music", "playing");
+          } catch (musicError) {
+            console.log("La musique n'a pas pu démarrer :", musicError);
+          }
         }
 
         location.href = 'app.html';
