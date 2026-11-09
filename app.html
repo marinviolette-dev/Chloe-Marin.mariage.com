@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="fr">
 <head>
@@ -9,26 +10,74 @@
 <body>
   <header class="topbar">
     <a class="brand" href="app.html">Chloé & Marin</a>
-    <button class="ghost-button" onclick="MarriageApp.logout()">Déconnexion</button>
+    <button class="ghost-button" onclick="MarriageApp.logout()">
+      Déconnexion
+    </button>
   </header>
+
   <main class="page">
     <section class="welcome">
       <p class="eyebrow">Votre espace</p>
       <h1 id="welcomeName">Bienvenue</h1>
-      <p class="muted">Tout ce qu’il faut pour préparer notre grand jour.</p>
+      <p class="muted">
+        Tout ce qu’il faut pour préparer notre grand jour.
+      </p>
     </section>
+
     <section class="grid">
-      <a class="tile" href="rsvp.html"><span class="tile-icon">♡</span><h2>Ma participation</h2><p>Confirmer votre présence et indiquer les personnes présentes.</p></a>
-      <a class="tile" href="infos.html"><span class="tile-icon">⌂</span><h2>Infos utiles</h2><p>Lieu, horaires, transport, hébergement et conseils pratiques.</p></a>
-      <a class="tile" href="photos.html"><span class="tile-icon">◌</span><h2>La pellicule</h2><p>Partagez jusqu’à 23 photos prises pendant le mariage.</p></a>
-      <a class="tile" href="souvenir.html"><span class="tile-icon">✦</span><h2>Notre histoire</h2><p>Quelques mots sur Chloé & Marin.</p></a>
+      <a class="tile" href="rsvp.html">
+        <span class="tile-icon">♡</span>
+        <h2>Ma participation</h2>
+        <p>Confirmer votre présence et indiquer les personnes présentes.</p>
+      </a>
+
+      <a class="tile" href="infos.html">
+        <span class="tile-icon">⌂</span>
+        <h2>Infos utiles</h2>
+        <p>Lieu, horaires, transport, hébergement et conseils pratiques.</p>
+      </a>
+
+      <a class="tile" href="photos.html">
+        <span class="tile-icon">◌</span>
+        <h2>La pellicule</h2>
+        <p>Partagez jusqu’à 23 photos prises pendant le mariage.</p>
+      </a>
+
+      <a class="tile" href="souvenir.html">
+        <span class="tile-icon">✦</span>
+        <h2>Notre histoire</h2>
+        <p>Quelques mots sur Chloé & Marin.</p>
+      </a>
     </section>
   </main>
+
   <script src="config.js"></script>
   <script src="app.js"></script>
+
   <script>
     const guest = MarriageApp.requireSession();
-    if (guest) document.getElementById('welcomeName').textContent = `Bonjour ${guest.first_name} ${guest.last_name}`;
+
+    if (guest) {
+      const firstName =
+        guest.first_name ||
+        guest.firstName ||
+        "";
+
+      const lastName =
+        guest.last_name ||
+        guest.lastName ||
+        "";
+
+      const fullName =
+        guest.full_name ||
+        guest.fullName ||
+        [firstName, lastName].filter(Boolean).join(" ");
+
+      document.getElementById("welcomeName").textContent =
+        fullName.trim()
+          ? `Bonjour ${fullName.trim()}`
+          : "Bonjour !";
+    }
   </script>
 </body>
 </html>
