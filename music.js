@@ -50,13 +50,7 @@
       const player = createPlayer();
 
       if (player.paused) {
-        try {
-          await player.play();
-          localStorage.setItem(MUSIC_KEY, "playing");
-          button.textContent = "🔊";
-        } catch (error) {
-          console.log("Impossible de lancer la musique :", error);
-        }
+        await startMusic();
       } else {
         player.pause();
         localStorage.setItem(MUSIC_KEY, "paused");
@@ -80,19 +74,17 @@
       } catch (error) {}
     }
 
-    const state = localStorage.getItem(MUSIC_KEY);
+    try {
+      await player.play();
 
-    if (state === "playing") {
-      try {
-        await player.play();
-      } catch (error) {
-        console.log(
-          "Lecture automatique bloquée par le navigateur."
-        );
-      }
+      localStorage.setItem(MUSIC_KEY, "playing");
+      updateButton();
+
+      return true;
+    } catch (error) {
+      console.log("Impossible de lancer la musique :", error);
+      return false;
     }
-
-    updateButton();
   }
 
   function updateButton() {
@@ -117,9 +109,21 @@
 
   window.addEventListener("beforeunload", savePosition);
 
+  // Permet à login.html de lancer la musique
+  window.WeddingMusic = {
+    start: startMusic
+  };
+
   document.addEventListener("DOMContentLoaded", () => {
     createPlayer();
     createButton();
-    startMusic();
+
+    const state = localStorage.getItem(MUSIC_KEY);
+
+    if (state === "playing") {
+      startMusic();
+    } else {
+      updateButton();
+    }
   });
 })();
