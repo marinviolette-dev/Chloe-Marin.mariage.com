@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Administration — Chloé & Marin</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .admin-wrap{max-width:1180px;margin:0 auto;padding:28px 18px 60px}
+    .admin-card{background:#fff;border:1px solid #e8e1da;border-radius:16px;padding:22px;margin:18px 0;box-shadow:0 5px 22px #3020100a}
+    .admin-head{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}
+    .admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+    .metric{background:#f8f5f1;border-radius:12px;padding:16px}
+    .metric strong{display:block;font-size:1.8rem;margin-top:5px}
+    .admin-actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+    .admin-actions button,.admin-login button{border:0;border-radius:9px;padding:11px 16px;background:#725b49;color:white;cursor:pointer;font:inherit}
+    button.secondary{background:#e9e2da;color:#493b30}
+    input{font:inherit;padding:11px;border:1px solid #d8cec4;border-radius:8px;max-width:100%}
+    .login-row{display:flex;gap:10px;flex-wrap:wrap}
+    .login-row input{flex:1;min-width:220px}
+    .table-scroll{overflow:auto}
+    table{width:100%;border-collapse:collapse;min-width:820px}
+    th,td{text-align:left;padding:11px 10px;border-bottom:1px solid #eee7e0;vertical-align:top}
+    th{font-size:.88rem;color:#6b5b4e;background:#faf8f6;position:sticky;top:0}
+    .status{display:inline-block;padding:4px 9px;border-radius:20px;font-size:.82rem;background:#eee;color:#51463d}
+    .yes{background:#e4f2e7;color:#27613a}.no{background:#f8e8e5;color:#8b382d}.pending{background:#f4efe3;color:#80602b}
+    .muted{color:#776e66}.error{color:#a32e25}.success{color:#27613a}
+    #dashboard[hidden],#login[hidden]{display:none}
+    @media(max-width:600px){.admin-wrap{padding:18px 12px 40px}.admin-card{padding:16px}}
+  </style>
+</head>
+<body>
+  <main class="admin-wrap">
+    <div class="admin-head">
+      <div>
+        <p class="muted">Chloé &amp; Marin · 2027</p>
+        <h1>Tableau de bord organisateurs</h1>
+        <p class="muted">Suivi des réponses et des invités.</p>
+      </div>
+      <a href="index.html">Retour au site</a>
+    </div>
+
+    <section id="login" class="admin-card">
+      <h2>Accès organisateurs</h2>
+      <p>Entre le mot de passe administrateur qui a été configuré dans Supabase.</p>
+      <form id="login-form" class="admin-login">
+        <div class="login-row">
+          <input id="admin-password" type="password" autocomplete="current-password" placeholder="Mot de passe administrateur" required>
+          <button type="submit">Se connecter</button>
+        </div>
+      </form>
+      <p id="login-message" role="status" class="muted"></p>
+    </section>
+
+    <section id="dashboard" hidden>
+      <div class="admin-card">
+        <div class="admin-head">
+          <div><h2>Vue d'ensemble</h2><p id="last-updated" class="muted">Chargement…</p></div>
+          <div class="admin-actions">
+            <button id="refresh-button">Actualiser</button>
+            <button id="export-button" class="secondary">Exporter en CSV</button>
+            <button id="logout-button" class="secondary">Se déconnecter</button>
+          </div>
+        </div>
+        <div class="admin-grid">
+          <div class="metric"><span class="muted">Invitations importées</span><strong id="total-guests">—</strong></div>
+          <div class="metric"><span class="muted">Familles ayant répondu</span><strong id="answered">—</strong></div>
+          <div class="metric"><span class="muted">En attente</span><strong id="pending">—</strong></div>
+          <div class="metric"><span class="muted">Présences confirmées</span><strong id="accepted">—</strong></div>
+          <div class="metric"><span class="muted">Refus</span><strong id="declined">—</strong></div>
+          <div class="metric"><span class="muted">Personnes présentes</span><strong id="people">—</strong></div>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-head">
+          <div><h2>Liste des invités</h2><p class="muted">Les réponses sont rapprochées du code d'invitation.</p></div>
+          <input id="search" type="search" placeholder="Rechercher un nom ou un code…">
+        </div>
+        <p id="dashboard-message" role="status" class="muted">Chargement des invités…</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Nom</th><th>Code</th><th>Quota</th><th>Réponse</th><th>Personnes</th><th>Accompagnants</th><th>Informations alimentaires</th><th>Dernière réponse</th>
+            </tr></thead>
+            <tbody id="guest-rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

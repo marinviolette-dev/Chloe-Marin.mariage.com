@@ -1,83 +1,161 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
-const cors = {
+const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json"
 };
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SHEET_CSV_URL = Deno.env.get("GUEST_SHEET_CSV_URL")!;
-const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+function reply(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
-function csvRows(text: string) {
-  const rows:string[][]=[]; let row:string[]=[]; let cell=""; let quoted=false;
-  for(let i=0;i<text.length;i++){
-    const c=text[i], n=text[i+1];
-    if(c === '"' && quoted && n === '"'){cell+='"';i++;continue;}
-    if(c === '"'){quoted=!quoted;continue;}
-    if(c === ',' && !quoted){row.push(cell);cell="";continue;}
-    if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(cell);cell="";if(row.some(x=>x.trim()))rows.push(row);row=[];continue;}
-    cell+=c;
+function parseCSV(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') {
+      if (quoted && text[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else quoted = !quoted;
+    } else if (c === "," && !quoted) {
+      row.push(cell.trim());
+      cell = "";
+    } else if ((c === "\n" || c === "\r") && !quoted) {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell.trim());
+      if (row.some((v) => v !== "")) rows.push(row);
+      row = [];
+      cell = "";
+    } else cell += c;
   }
-  if(cell!==""||row.length){row.push(cell);if(row.some(x=>x.trim()))rows.push(row);}
+  row.push(cell.trim());
+  if (row.some((v) => v !== "")) rows.push(row);
   return rows;
 }
-const norm=(v:string)=>String(v??"").trim().toLowerCase();
 
-async function guestFromSheet(invite:string){
-  const r=await fetch(SHEET_CSV_URL,{cache:"no-store"});
-  if(!r.ok) throw new Error("Impossible de lire la liste des invités.");
-  const rows=csvRows(await r.text());
-  if(rows.length<2) throw new Error("Liste des invités vide.");
-  const h=rows[0].map(norm);
-  const find=(names:string[], fallback:number)=>{for(const n of names){const i=h.indexOf(norm(n));if(i>=0)return i;}return fallback;};
-  const iId=find(["identifiant","identifiant de connexion","login","code"],8);
-  const iAdults=find(["max guest","max guests","adultes","adult"],6);
-  const iChildren=find(["enfants","children"],7);
-  const row=rows.slice(1).find(r=>norm(r[iId])===norm(invite));
-  if(!row) return null;
-  const adults=Math.max(0,parseInt(row[iAdults]||"0",10)||0);
-  const children=Math.max(0,parseInt(row[iChildren]||"0",10)||0);
-  return {maxGuests:adults+children};
+function codeOf(value: unknown) {
+  return String(value ?? "").trim().replace(/\s+/g, "").toUpperCase();
 }
 
-Deno.serve(async (req)=>{
-  if(req.method==="OPTIONS") return new Response("ok",{headers:cors});
-  try{
-    const body=await req.json();
-    const guest_id=String(body.guest_id||"").trim();
-    if(!guest_id) throw new Error("Identifiant invité manquant.");
+function asNumber(value: string) {
+  const n = Number(String(value ?? "").replace(",", ".").trim());
+  return Number.isFinite(n) ? n : 0;
+}
 
-    if(body.action==="get"){
-      const {data,error}=await db.from("rsvps").select("*").eq("invite_code",guest_id).maybeSingle();
-      if(error) throw error;
-      return new Response(JSON.stringify(data||null),{headers:cors});
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return reply({ error: "Méthode non autorisée." }, 405);
+
+  try {
+    const expectedPassword = Deno.env.get("ADMIN_DASHBOARD_PASSWORD");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const csvUrl = Deno.env.get("GUEST_SHEET_CSV_URL");
+
+    if (!expectedPassword || !supabaseUrl || !serviceKey || !csvUrl) {
+      throw new Error("Configuration administrateur incomplète dans les secrets Supabase.");
     }
 
-    const guest=await guestFromSheet(guest_id);
-    if(!guest) return new Response(JSON.stringify({error:"Identifiant invité invalide."}),{status:401,headers:cors});
-
-    const attendance=body.attendance==="yes"?"yes":"no";
-    const peopleCount=attendance==="yes"?Number(body.people_count||0):0;
-    if(attendance==="yes" && (peopleCount<1 || peopleCount>guest.maxGuests)){
-      return new Response(JSON.stringify({error:`Votre invitation autorise au maximum ${guest.maxGuests} personne(s).`}),{status:400,headers:cors});
+    const body = await req.json();
+    if (typeof body.password !== "string" || body.password !== expectedPassword) {
+      return reply({ error: "Mot de passe administrateur incorrect." }, 401);
+    }
+    if (body.action !== "refresh") {
+      return reply({ error: "Action inconnue." }, 400);
     }
 
-    const payload={
-      invite_code:guest_id,
-      attendance,
-      people_count:peopleCount,
-      companions:String(body.companions||"").slice(0,2000),
-      diet:String(body.diet||"").slice(0,2000),
-      updated_at:new Date().toISOString()
-    };
-    const {data,error}=await db.from("rsvps").upsert(payload,{onConflict:"invite_code"}).select().single();
-    if(error) throw error;
-    return new Response(JSON.stringify(data),{headers:cors});
-  }catch(e){
-    return new Response(JSON.stringify({error:e instanceof Error?e.message:"Erreur serveur"}),{status:400,headers:cors});
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Synchronisation de la liste d'invités depuis Google Sheets.
+    const csvResponse = await fetch(
+      csvUrl + (csvUrl.includes("?") ? "&" : "?") + "t=" + Date.now(),
+      { cache: "no-store" },
+    );
+    if (!csvResponse.ok) throw new Error("Impossible de lire le Google Sheets.");
+
+    const rows = parseCSV(await csvResponse.text());
+    const uniqueGuests = new Map<string, {
+      first_name: string; last_name: string; invite_code: string; max_guests: number;
+    }>();
+
+    // A = nom/famille, B = prénom, G = adultes, H = enfants, I = code.
+    for (const row of rows) {
+      const inviteCode = codeOf(row[8]);
+      if (!inviteCode) continue;
+      const maxGuests = asNumber(row[6] || "0") + asNumber(row[7] || "0");
+      uniqueGuests.set(inviteCode, {
+        first_name: row[1] || row[0] || "Invité",
+        last_name: row[0] || "Famille",
+        invite_code: inviteCode,
+        max_guests: maxGuests,
+      });
+    }
+
+    const guestsToSync = [...uniqueGuests.values()];
+    if (guestsToSync.length) {
+      const { error: syncError } = await supabase
+        .from("guests")
+        .upsert(guestsToSync, { onConflict: "invite_code" });
+      if (syncError) {
+        throw new Error(
+          `Synchronisation guests impossible : ${syncError.message}. Vérifie qu'un index UNIQUE existe sur guests.invite_code.`,
+        );
+      }
+    }
+
+    const { data: guests, error: guestsError } = await supabase
+      .from("guests")
+      .select("id, first_name, last_name, invite_code, max_guests")
+      .order("last_name", { ascending: true });
+    if (guestsError) throw guestsError;
+
+    const { data: rsvps, error: rsvpError } = await supabase
+      .from("rsvps")
+      .select("guest_id, invite_code, attendance, people_count, companions, diet, updated_at");
+    if (rsvpError) throw rsvpError;
+
+    const byGuestId = new Map((rsvps || []).map((r) => [r.guest_id, r]));
+    const result = (guests || []).map((g) => {
+      const r = byGuestId.get(g.id);
+      return {
+        ...g,
+        attendance: r?.attendance ?? null,
+        people_count: r?.people_count ?? null,
+        companions: r?.companions ?? null,
+        diet: r?.diet ?? null,
+        updated_at: r?.updated_at ?? null,
+      };
+    });
+
+    const answered = result.filter((g) => g.attendance === "yes" || g.attendance === "no");
+    const accepted = result.filter((g) => g.attendance === "yes");
+    const declined = result.filter((g) => g.attendance === "no");
+
+    return reply({
+      success: true,
+      guests: result,
+      stats: {
+        totalGuests: result.length,
+        answered: answered.length,
+        pending: result.length - answered.length,
+        accepted: accepted.length,
+        declined: declined.length,
+        people: accepted.reduce((sum, g) => sum + Number(g.people_count || 0), 0),
+      },
+    });
+  } catch (error) {
+    console.error("ADMIN DASHBOARD ERROR:", error);
+    return reply({
+      error: error instanceof Error ? error.message : "Erreur serveur.",
+    }, 500);
   }
 });
