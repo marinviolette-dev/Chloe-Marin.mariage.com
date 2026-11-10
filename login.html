@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="fr">
 <head>
@@ -46,9 +47,11 @@
 
       const message = document.getElementById('loginMessage');
       const input = document.getElementById('guestId');
+      const submitButton = event.currentTarget.querySelector('button[type="submit"]');
 
       message.textContent = 'Vérification…';
       message.className = 'message';
+      submitButton.disabled = true;
 
       try {
         const guest = await MarriageApp.findGuest(input.value);
@@ -61,7 +64,7 @@
 
         MarriageApp.saveSession(guest);
 
-        // Prépare la musique et la lance pendant l'action de l'invité.
+        // Prépare la musique et tente de la lancer.
         const music = document.getElementById("weddingMusic");
 
         if (music) {
@@ -82,10 +85,13 @@
           }
         }
 
-        location.href = 'app.html';
+        // Le portail conservera le lecteur pendant la navigation.
+        location.href = 'portail.html';
+
       } catch (error) {
         message.textContent = error.message;
         message.className = 'message error';
+        submitButton.disabled = false;
       }
     });
   </script>
