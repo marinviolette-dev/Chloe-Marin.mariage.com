@@ -6,77 +6,187 @@
   <title>RSVP — Chloé & Marin</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-<header class="topbar"><a class="brand" href="app.html">Chloé & Marin</a><a class="text-link" href="app.html">Mon espace</a></header>
+
+<header class="topbar">
+  <a class="brand" href="app.html">Chloé & Marin</a>
+  <a class="text-link" href="app.html">Mon espace</a>
+</header>
+
 <main class="page narrow">
   <section class="card">
+
     <p class="eyebrow">RSVP</p>
     <h1>Votre participation</h1>
     <p class="muted" id="limitText"></p>
+
     <form id="rsvpForm">
+
       <fieldset>
         <legend>Serons-nous parmi vous ?</legend>
-        <label class="choice"><input type="radio" name="attendance" value="yes" checked> Oui, avec plaisir !</label>
-        <label class="choice"><input type="radio" name="attendance" value="no"> Non, malheureusement.</label>
+
+        <label class="choice">
+          <input type="radio" name="attendance" value="yes" checked>
+          Oui, avec plaisir !
+        </label>
+
+        <label class="choice">
+          <input type="radio" name="attendance" value="no">
+          Non, malheureusement.
+        </label>
       </fieldset>
+
       <div id="details">
-        <label for="peopleCount">Nombre total de personnes présentes</label>
+
+        <label for="peopleCount">
+          Nombre total de personnes présentes
+        </label>
+
         <select id="peopleCount"></select>
+
         <p class="small" id="peopleHelp"></p>
-        <label for="companions">Noms des accompagnants / enfants</label>
-        <textarea id="companions" rows="3" placeholder="Prénom(s) et nom(s)"></textarea>
-        <label for="diet">Allergies, régimes ou précisions</label>
-        <textarea id="diet" rows="3" placeholder="Optionnel"></textarea>
+
+        <label for="companions">
+          Noms des accompagnants / enfants
+        </label>
+
+        <textarea
+          id="companions"
+          rows="3"
+          placeholder="Prénom(s) et nom(s)"
+        ></textarea>
+
+        <label for="diet">
+          Allergies, régimes ou précisions
+        </label>
+
+        <textarea
+          id="diet"
+          rows="3"
+          placeholder="Optionnel"
+        ></textarea>
+
       </div>
-      <button class="button full" type="submit">Enregistrer ma réponse</button>
+
+      <button class="button full" type="submit">
+        Enregistrer ma réponse
+      </button>
+
       <p id="rsvpMessage" class="message" role="status"></p>
+
     </form>
+
   </section>
 </main>
+
+<!-- Musique -->
+<script src="music.js"></script>
+
 <script src="config.js"></script>
 <script src="app.js"></script>
+
 <script>
 const guest = MarriageApp.requireSession();
+
 if (guest) {
+
   const max = guest.max_guests;
-  document.getElementById('limitText').textContent = `Votre invitation permet jusqu’à ${max} personne${max > 1 ? 's' : ''}.`;
+
+  document.getElementById('limitText').textContent =
+    `Votre invitation permet jusqu’à ${max} personne${max > 1 ? 's' : ''}.`;
+
   const select = document.getElementById('peopleCount');
-  for (let i=1;i<=max;i++) {
-    const o=document.createElement('option'); o.value=i; o.textContent=i; select.appendChild(o);
+
+  for (let i = 1; i <= max; i++) {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = i;
+    select.appendChild(o);
   }
-  document.getElementById('peopleHelp').textContent = `Maximum autorisé : ${max}.`;
-  document.querySelectorAll('input[name="attendance"]').forEach(r => r.addEventListener('change', () => {
-    document.getElementById('details').style.display = r.checked && r.value === 'yes' ? '' : 'none';
-  }));
+
+  document.getElementById('peopleHelp').textContent =
+    `Maximum autorisé : ${max}.`;
+
+  document
+    .querySelectorAll('input[name="attendance"]')
+    .forEach(r => r.addEventListener('change', () => {
+
+      document.getElementById('details').style.display =
+        r.checked && r.value === 'yes' ? '' : 'none';
+
+    }));
+
   MarriageApp.loadRsvp(guest).then(data => {
+
     if (!data) return;
-    document.querySelector(`input[name="attendance"][value="${data.attendance}"]`).checked = true;
-    if (data.attendance === 'no') document.getElementById('details').style.display='none';
-    if (data.people_count) select.value = data.people_count;
-    document.getElementById('companions').value = data.companions || '';
-    document.getElementById('diet').value = data.diet || '';
+
+    document.querySelector(
+      `input[name="attendance"][value="${data.attendance}"]`
+    ).checked = true;
+
+    if (data.attendance === 'no') {
+      document.getElementById('details').style.display = 'none';
+    }
+
+    if (data.people_count) {
+      select.value = data.people_count;
+    }
+
+    document.getElementById('companions').value =
+      data.companions || '';
+
+    document.getElementById('diet').value =
+      data.diet || '';
+
   });
+
   document.getElementById('rsvpForm').addEventListener('submit', async e => {
+
     e.preventDefault();
-    const msg=document.getElementById('rsvpMessage');
-    msg.textContent='Enregistrement…'; msg.className='message';
+
+    const msg = document.getElementById('rsvpMessage');
+
+    msg.textContent = 'Enregistrement…';
+    msg.className = 'message';
+
     try {
-      const attendance=document.querySelector('input[name="attendance"]:checked').value;
-      const payload={
+
+      const attendance =
+        document.querySelector(
+          'input[name="attendance"]:checked'
+        ).value;
+
+      const payload = {
         guest_id: guest.invite_code,
         attendance,
-        people_count: attendance === 'yes' ? Number(select.value) : 0,
-        companions: document.getElementById('companions').value.trim(),
-        diet: document.getElementById('diet').value.trim()
+        people_count:
+          attendance === 'yes'
+            ? Number(select.value)
+            : 0,
+        companions:
+          document.getElementById('companions').value.trim(),
+        diet:
+          document.getElementById('diet').value.trim()
       };
+
       await MarriageApp.saveRsvp(payload);
-      msg.textContent='Merci, votre réponse est bien enregistrée.';
-      msg.className='message success';
-    } catch(err) {
-      msg.textContent=err.message; msg.className='message error';
+
+      msg.textContent =
+        'Merci, votre réponse est bien enregistrée.';
+
+      msg.className = 'message success';
+
+    } catch (err) {
+
+      msg.textContent = err.message;
+      msg.className = 'message error';
+
     }
+
   });
 }
 </script>
+
 </body>
 </html>
