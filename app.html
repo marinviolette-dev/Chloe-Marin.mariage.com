@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="fr">
 <head>
@@ -11,6 +10,7 @@
 <body>
   <header class="topbar">
     <a class="brand" href="app.html">Chloé & Marin</a>
+
     <button class="ghost-button" onclick="MarriageApp.logout()">
       Déconnexion
     </button>
@@ -62,10 +62,7 @@
 
       if (!guest) return;
 
-      // On utilise exclusivement le prénom, jamais le nom de famille.
       const rawFirstName = String(guest.first_name || "").trim();
-
-      // On conserve uniquement le premier prénom.
       const firstName = rawFirstName.split(/\s+/)[0];
 
       const welcomeElement = document.getElementById("welcomeName");
