@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <title>Musique — Chloé & Marin</title>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      font-family: Arial, sans-serif;
+    }
+
+    .player {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 9999;
+
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      padding: 10px 14px;
+
+      background: rgba(255,255,255,.95);
+      border: 1px solid rgba(0,0,0,.12);
+      border-radius: 999px;
+
+      box-shadow: 0 5px 20px rgba(0,0,0,.15);
+    }
+
+    button {
+      width: 38px;
+      height: 38px;
+
+      border: 0;
+      border-radius: 50%;
+
+      background: #191816;
+      color: white;
+
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .title {
+      font-size: 12px;
+      color: #191816;
+      white-space: nowrap;
+    }
+
+    .status {
+      font-size: 11px;
+      color: #746e66;
+    }
+
+    audio {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="player">
+
+  <button id="musicButton" type="button" title="Lecture / pause">
+    ▶
+  </button>
+
+  <div>
+    <div class="title">Chloé & Marin ♪</div>
+    <div class="status" id="musicStatus">Pause</div>
+  </div>
+
+</div>
+
+<audio
+  id="music"
+  loop
+  preload="auto"
+  src="Alex%20Warren%20-%20Ordinary%20%28Official%20Music%20Video%29.mp3">
+</audio>
+
+<script>
+const music = document.getElementById("music");
+const button = document.getElementById("musicButton");
+const status = document.getElementById("musicStatus");
+
+button.addEventListener("click", async () => {
+
+  if (music.paused) {
+
+    try {
+      await music.play();
+
+      button.textContent = "❚❚";
+      status.textContent = "Lecture";
+
+    } catch (error) {
+
+      status.textContent = "Lecture impossible";
+
+    }
+
+  } else {
+
+    music.pause();
+
+    button.textContent = "▶";
+    status.textContent = "Pause";
+
+  }
+
+});
+
+music.addEventListener("play", () => {
+  button.textContent = "❚❚";
+  status.textContent = "Lecture";
+});
+
+music.addEventListener("pause", () => {
+  button.textContent = "▶";
+  status.textContent = "Pause";
+});
+</script>
+
+</body>
+</html>
