@@ -8,7 +8,6 @@
 </head>
 
 <body>
-
 <header class="topbar">
   <a class="brand" href="app.html">Chloé & Marin</a>
   <a class="text-link" href="app.html">Mon espace</a>
@@ -16,7 +15,6 @@
 
 <main class="page narrow">
   <section class="card">
-
     <p class="eyebrow">RSVP</p>
     <h1>Votre participation</h1>
     <p class="muted" id="limitText"></p>
@@ -76,12 +74,8 @@
       <p id="rsvpMessage" class="message" role="status"></p>
 
     </form>
-
   </section>
 </main>
-
-<!-- Musique -->
-<script src="music.js"></script>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
@@ -98,24 +92,22 @@ if (guest) {
 
   const select = document.getElementById('peopleCount');
 
-  for (let i = 1; i <= max; i++) {
-    const o = document.createElement('option');
-    o.value = i;
-    o.textContent = i;
+  for (let i=1;i<=max;i++) {
+    const o=document.createElement('option');
+    o.value=i;
+    o.textContent=i;
     select.appendChild(o);
   }
 
   document.getElementById('peopleHelp').textContent =
     `Maximum autorisé : ${max}.`;
 
-  document
-    .querySelectorAll('input[name="attendance"]')
-    .forEach(r => r.addEventListener('change', () => {
-
+  document.querySelectorAll('input[name="attendance"]').forEach(r =>
+    r.addEventListener('change', () => {
       document.getElementById('details').style.display =
         r.checked && r.value === 'yes' ? '' : 'none';
-
-    }));
+    })
+  );
 
   MarriageApp.loadRsvp(guest).then(data => {
 
@@ -126,7 +118,7 @@ if (guest) {
     ).checked = true;
 
     if (data.attendance === 'no') {
-      document.getElementById('details').style.display = 'none';
+      document.getElementById('details').style.display='none';
     }
 
     if (data.people_count) {
@@ -138,17 +130,16 @@ if (guest) {
 
     document.getElementById('diet').value =
       data.diet || '';
-
   });
 
   document.getElementById('rsvpForm').addEventListener('submit', async e => {
 
     e.preventDefault();
 
-    const msg = document.getElementById('rsvpMessage');
+    const msg=document.getElementById('rsvpMessage');
 
-    msg.textContent = 'Enregistrement…';
-    msg.className = 'message';
+    msg.textContent='Enregistrement…';
+    msg.className='message';
 
     try {
 
@@ -157,7 +148,7 @@ if (guest) {
           'input[name="attendance"]:checked'
         ).value;
 
-      const payload = {
+      const payload={
         guest_id: guest.invite_code,
         attendance,
         people_count:
@@ -172,18 +163,15 @@ if (guest) {
 
       await MarriageApp.saveRsvp(payload);
 
-      msg.textContent =
-        'Merci, votre réponse est bien enregistrée.';
+      msg.textContent='Merci, votre réponse est bien enregistrée.';
+      msg.className='message success';
 
-      msg.className = 'message success';
+    } catch(err) {
 
-    } catch (err) {
-
-      msg.textContent = err.message;
-      msg.className = 'message error';
+      msg.textContent=err.message;
+      msg.className='message error';
 
     }
-
   });
 }
 </script>
