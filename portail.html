@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="fr">
 <head>
@@ -6,9 +7,7 @@
   <title>Chloé & Marin — Espace invités</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     html, body {
       margin: 0;
@@ -60,15 +59,27 @@
     const music = document.getElementById("weddingMusic");
     const button = document.getElementById("musicButton");
 
+    function updateButton() {
+      button.textContent = music.paused ? "🎵" : "🔊";
+    }
+
+    async function startMusic() {
+      try {
+        await music.play();
+        localStorage.setItem("chloe-marin-music", "playing");
+      } catch (error) {
+        console.log("Lecture automatique bloquée :", error);
+      }
+
+      updateButton();
+    }
+
     button.addEventListener("click", async () => {
       if (music.paused) {
-        try {
-          await music.play();
-        } catch (error) {
-          console.log("Lecture impossible :", error);
-        }
+        await startMusic();
       } else {
         music.pause();
+        localStorage.setItem("chloe-marin-music", "paused");
       }
 
       updateButton();
@@ -77,9 +88,12 @@
     music.addEventListener("play", updateButton);
     music.addEventListener("pause", updateButton);
 
-    function updateButton() {
-      button.textContent = music.paused ? "🎵" : "🔊";
+    // Récupère la demande faite pendant la connexion.
+    if (localStorage.getItem("chloe-marin-music") === "playing") {
+      startMusic();
     }
+
+    updateButton();
   </script>
 
 </body>
