@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Un message pour vous — Chloé & Marin</title>
+  <link rel="stylesheet" href="style.css?v=20261110-2">
+</head>
+
+<body>
+  <header class="topbar">
+    <a class="brand" href="app.html">Chloé & Marin</a>
+
+    <button class="ghost-button" onclick="MarriageApp.logout()">
+      Déconnexion
+    </button>
+  </header>
+
+  <main class="page">
+    <section class="welcome">
+      <p class="eyebrow">Un petit mot pour vous</p>
+      <h1 id="messageTitle">Message des mariés pour vous</h1>
+
+      <p class="muted">
+        Parce que chaque invité compte pour nous.
+      </p>
+    </section>
+
+    <section class="card">
+      <p id="guestMessage">
+        Notre petit message pour vous arrivera bientôt...
+      </p>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js?v=20261109-5"></script>
+
+  <script>
+    (function () {
+      const guest = MarriageApp.requireSession();
+
+      if (!guest) return;
+
+      const rawFirstName = String(guest.first_name || "").trim();
+      const firstName = rawFirstName.split(/\s+/)[0];
+
+      const messagesInvites = {
+        "Thérèse": "Notre petit message pour vous..."
+      };
+
+      const messageElement = document.getElementById("guestMessage");
+
+      if (firstName && messagesInvites[firstName]) {
+        messageElement.textContent = messagesInvites[firstName];
+      }
+    })();
+  </script>
+</body>
+</html>
