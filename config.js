@@ -1,3 +1,4 @@
+
 window.MARRIAGE_CONFIG = {
   couple: {
     firstName: "Chloé",
@@ -13,6 +14,7 @@ window.MARRIAGE_CONFIG = {
   functions: {
     saveRsvp: "save-rsvp",
     photoSession: "photo-session",
-    photoList: "photo-list"
+    photoList: "photo-list",
+    getPersonalMessage: "get-personal-message"
   }
 };
