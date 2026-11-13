@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="fr">
 <head>
@@ -26,10 +27,26 @@
       </p>
     </section>
 
-    <section class="card">
-      <p id="guestMessage">
-        Notre petit message pour vous arrivera bientôt...
+    <section class="card" style="text-align:center;">
+
+      <img
+        src="message-maries.png.png"
+        alt="Enveloppe avec un sceau C&M"
+        style="display:block;width:100%;max-width:420px;height:240px;object-fit:cover;border-radius:14px;margin:0 auto 28px;"
+      >
+
+      <p style="font-size:1.05rem;line-height:1.8;">
+        <span id="guestMessage">
+          Notre petit message pour vous arrivera bientôt...
+        </span>
       </p>
+
+      <p style="margin-top:28px;font-style:italic;">
+        Avec toute notre affection,
+        <br>
+        Chloé & Marin
+      </p>
+
     </section>
   </main>
 
@@ -44,6 +61,12 @@
 
       const rawFirstName = String(guest.first_name || "").trim();
       const firstName = rawFirstName.split(/\s+/)[0];
+
+      const titleElement = document.getElementById("messageTitle");
+
+      if (firstName) {
+        titleElement.textContent = "Un petit message pour " + firstName;
+      }
 
       const messagesInvites = {
         "Thérèse": "Notre petit message pour vous..."
