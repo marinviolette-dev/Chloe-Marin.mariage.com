@@ -37,7 +37,7 @@
 
       <p style="font-size:1.05rem;line-height:1.8;">
         <span id="guestMessage">
-          Notre petit message pour vous arrivera bientôt...
+          Chargement de votre petit mot...
         </span>
       </p>
 
@@ -54,7 +54,8 @@
   <script src="app.js?v=20261109-5"></script>
 
   <script>
-    (function () {
+    (async function () {
+
       const guest = MarriageApp.requireSession();
 
       if (!guest) return;
@@ -62,21 +63,82 @@
       const rawFirstName = String(guest.first_name || "").trim();
       const firstName = rawFirstName.split(/\s+/)[0];
 
-      const titleElement = document.getElementById("messageTitle");
+      const titleElement =
+        document.getElementById("messageTitle");
+
+      const messageElement =
+        document.getElementById("guestMessage");
 
       if (firstName) {
-        titleElement.textContent = "Un petit message pour " + firstName;
+        titleElement.textContent =
+          "Un petit message pour " + firstName;
       }
 
-      const messagesInvites = {
-        "Thérèse": "Notre petit message pour vous..."
-      };
+      const inviteCode = guest.invite_code;
 
-      const messageElement = document.getElementById("guestMessage");
-
-      if (firstName && messagesInvites[firstName]) {
-        messageElement.textContent = messagesInvites[firstName];
+      if (!inviteCode) {
+        messageElement.textContent =
+          "Impossible de retrouver votre code d'invitation.";
+        return;
       }
+
+      try {
+
+        const C = window.MARRIAGE_CONFIG;
+
+        const response = await fetch(
+          `${C.supabase.url}/functions/v1/${C.functions.getPersonalMessage}`,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": C.supabase.anonKey,
+              "Authorization": `Bearer ${C.supabase.anonKey}`
+            },
+
+            body: JSON.stringify({
+              inviteCode: inviteCode
+            })
+          }
+        );
+
+        let data = {};
+
+        try {
+          data = await response.json();
+        } catch (error) {
+          data = {};
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+            data.message ||
+            "Impossible de charger votre message."
+          );
+        }
+
+        if (!data.message) {
+          messageElement.textContent =
+            "Votre petit mot arrivera bientôt...";
+          return;
+        }
+
+        messageElement.textContent = data.message;
+
+      } catch (error) {
+
+        console.error(
+          "Erreur lors du chargement du message :",
+          error
+        );
+
+        messageElement.textContent =
+          "Votre petit mot n'a pas pu être chargé. Merci de réessayer un peu plus tard.";
+
+      }
+
     })();
   </script>
 </body>
